@@ -1,0 +1,7 @@
+# Archivo de Entorno Seguro (Variables de Configuración)
+# IMPORTANTE: Este archivo NO debe subirse a GitHub (añádelo a .gitignore)
+
+# Coloca aquí tu API Key real de Groq:
+GROQ_API_KEY=AQUI_PONEN_LA_API_KEY_REAL_DE_GROQ
+
+#DEBEN CAMBIAR EL NOMBRE DEL ARCHIVO A .env Y PONER SU API KEY

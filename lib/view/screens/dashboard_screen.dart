@@ -1,0 +1,162 @@
+import 'package:flutter/material.dart';
+import '../../controllers/dashboard_controller.dart';
+import '../../config/themes/app_theme.dart';
+import '../widgets/status_indicator_widget.dart';
+import '../widgets/water_wave_widget.dart'; // ¡Importamos la animación!
+import '../../config/routes/app_routes.dart';
+
+class DashboardScreen extends StatelessWidget {
+  final DashboardController controller;
+
+  const DashboardScreen({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('EdgeLeak AI - Panel de Control'),
+        actions:[
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.historialScreen),
+            tooltip: 'Ver Historial local',
+          )
+        ],
+      ),
+      body: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) {
+          return Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children:[
+                StatusIndicatorWidget(conectado: controller.conectado),
+                const SizedBox(height: 15),
+
+                // Tarjeta Principal (Texto de Caudal + Animación de Agua)
+                Card(
+                  clipBehavior: Clip.antiAlias, // Importante para que el agua no se salga de los bordes curvos
+                  elevation: 6,
+                  child: Stack(
+                    alignment: Alignment.bottomCenter,
+                    children:[
+                      // Fondo Animado de Agua
+                      WaterWaveWidget(modo: controller.modoSimulacion),
+                      
+                      // Texto de Caudal superpuesto
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 30.0),
+                        child: Column(
+                          children:[
+                            const Text('Caudal del Sensor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                            const SizedBox(height: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.8), // Fondo semitransparente para que siempre se lea el número
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${controller.caudalActual.toStringAsFixed(2)} L/min',
+                                style: TextStyle(
+                                  fontSize: 48, 
+                                  fontWeight: FontWeight.bold,
+                                  color: controller.modoSimulacion == 'Fuga' 
+                                      ? AppTheme.criticalColor 
+                                      : (controller.modoSimulacion == 'Anomalia' ? AppTheme.warningColor : AppTheme.primaryColor),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                const Text('Inyección de Estado al Sensor:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                SegmentedButton<String>(
+                  segments: const[
+                    ButtonSegment(value: 'Normal', label: Text('Normal'), icon: Icon(Icons.water_drop)),
+                    ButtonSegment(value: 'Anomalia', label: Text('Anomalía'), icon: Icon(Icons.warning_amber)),
+                    ButtonSegment(value: 'Fuga', label: Text('Fuga'), icon: Icon(Icons.error_outline)),
+                  ],
+                  selected: {controller.modoSimulacion},
+                  onSelectionChanged: (Set<String> newSelection) {
+                    controller.setModoSimulacion(newSelection.first);
+                  },
+                  style: SegmentedButton.styleFrom(
+                    selectedForegroundColor: Colors.white,
+                    selectedBackgroundColor: controller.modoSimulacion == 'Fuga' 
+                        ? AppTheme.criticalColor 
+                        : (controller.modoSimulacion == 'Anomalia' ? AppTheme.warningColor : AppTheme.normalColor),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Alertas
+                if (controller.iaProcesando)
+                  const Center(
+                    child: Column(
+                      children:[
+                        CircularProgressIndicator(),
+                        SizedBox(height: 10),
+                        Text('Groq AI analizando flujo...', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  )
+                else if (controller.ultimaAlerta != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: controller.ultimaAlerta!.severidad == 'Crítica' 
+                          ? AppTheme.criticalColor 
+                          : (controller.ultimaAlerta!.severidad == 'Advertencia' ? AppTheme.warningColor : AppTheme.normalColor),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children:[
+                        Icon(
+                          controller.ultimaAlerta!.severidad == 'Crítica' ? Icons.warning : Icons.info, 
+                          color: Colors.white, 
+                          size: 35
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children:[
+                              Text(controller.ultimaAlerta!.veredicto, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(controller.ultimaAlerta!.mensaje, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const Spacer(),
+
+                ElevatedButton.icon(
+                  onPressed: controller.iaProcesando ? null : () => controller.enviarPayloadIA(),
+                  icon: const Icon(Icons.psychology),
+                  label: const Text('EVALUAR CON INTELIGENCIA ARTIFICIAL'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black87,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)
+                  ),
+                ),
+                const SizedBox(height: 5),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
