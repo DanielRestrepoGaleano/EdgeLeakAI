@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:edgeleak/main.dart';
+import '../lib/controllers/auth_controller.dart';
+import '../lib/controllers/dashboard_controller.dart';
+import '../lib/view/screens/login_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('Prueba de UI: La pantalla de Login renderiza todos sus elementos clave', (WidgetTester tester) async {
+    // 1. Arrange (Preparar) - Inyectamos los controladores vacíos
+    final authController = AuthController();
+    final dashboardController = DashboardController();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Construimos la pantalla dentro del entorno de pruebas
+    await tester.pumpWidget(MaterialApp(
+      home: LoginScreen(
+        authController: authController,
+        dashboardController: dashboardController,
+      ),
+    ));
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // 2. Act & Assert (Actuar y Afirmar)
+    // Verificamos que el título principal exista
+    expect(find.text('EdgeLeak AI'), findsOneWidget);
+    
+    // Verificamos que existan exactamente 2 campos de texto (Correo y Contraseña)
+    expect(find.byType(TextField), findsNWidgets(2));
+    
+    // Verificamos que el botón de inicio de sesión esté en la pantalla
+    expect(find.text('INICIAR SESIÓN'), findsOneWidget);
+    
+    // Verificamos que el enlace al registro esté disponible
+    expect(find.text('¿No tienes cuenta? Regístrate aquí'), findsOneWidget);
   });
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../config/themes/app_theme.dart';
 import '../widgets/status_indicator_widget.dart';
-import '../widgets/water_wave_widget.dart'; // ¡Importamos la animación!
+import '../widgets/water_wave_widget.dart';
 import '../../config/routes/app_routes.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -14,12 +14,21 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('EdgeLeak AI - Panel de Control'),
+        // Saludo personalizado con el nombre del usuario logueado
+        title: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) => Text('Hola, ${controller.usuarioLogueado} 👋', style: const TextStyle(fontSize: 20)),
+        ),
         actions:[
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () => Navigator.pushNamed(context, AppRoutes.historialScreen),
             tooltip: 'Ver Historial local',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.loginScreen),
+            tooltip: 'Cerrar Sesión',
           )
         ],
       ),
@@ -34,17 +43,13 @@ class DashboardScreen extends StatelessWidget {
                 StatusIndicatorWidget(conectado: controller.conectado),
                 const SizedBox(height: 15),
 
-                // Tarjeta Principal (Texto de Caudal + Animación de Agua)
                 Card(
-                  clipBehavior: Clip.antiAlias, // Importante para que el agua no se salga de los bordes curvos
+                  clipBehavior: Clip.antiAlias,
                   elevation: 6,
                   child: Stack(
                     alignment: Alignment.bottomCenter,
                     children:[
-                      // Fondo Animado de Agua
                       WaterWaveWidget(modo: controller.modoSimulacion),
-                      
-                      // Texto de Caudal superpuesto
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 30.0),
                         child: Column(
@@ -53,18 +58,13 @@ class DashboardScreen extends StatelessWidget {
                             const SizedBox(height: 5),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8), // Fondo semitransparente para que siempre se lea el número
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(10)),
                               child: Text(
                                 '${controller.caudalActual.toStringAsFixed(2)} L/min',
                                 style: TextStyle(
                                   fontSize: 48, 
                                   fontWeight: FontWeight.bold,
-                                  color: controller.modoSimulacion == 'Fuga' 
-                                      ? AppTheme.criticalColor 
-                                      : (controller.modoSimulacion == 'Anomalia' ? AppTheme.warningColor : AppTheme.primaryColor),
+                                  color: controller.modoSimulacion == 'Fuga' ? AppTheme.criticalColor : (controller.modoSimulacion == 'Anomalia' ? AppTheme.warningColor : AppTheme.primaryColor),
                                 ),
                               ),
                             ),
@@ -85,45 +85,26 @@ class DashboardScreen extends StatelessWidget {
                     ButtonSegment(value: 'Fuga', label: Text('Fuga'), icon: Icon(Icons.error_outline)),
                   ],
                   selected: {controller.modoSimulacion},
-                  onSelectionChanged: (Set<String> newSelection) {
-                    controller.setModoSimulacion(newSelection.first);
-                  },
+                  onSelectionChanged: (Set<String> newSelection) => controller.setModoSimulacion(newSelection.first),
                   style: SegmentedButton.styleFrom(
                     selectedForegroundColor: Colors.white,
-                    selectedBackgroundColor: controller.modoSimulacion == 'Fuga' 
-                        ? AppTheme.criticalColor 
-                        : (controller.modoSimulacion == 'Anomalia' ? AppTheme.warningColor : AppTheme.normalColor),
+                    selectedBackgroundColor: controller.modoSimulacion == 'Fuga' ? AppTheme.criticalColor : (controller.modoSimulacion == 'Anomalia' ? AppTheme.warningColor : AppTheme.normalColor),
                   ),
                 ),
                 const SizedBox(height: 15),
 
-                // Alertas
                 if (controller.iaProcesando)
-                  const Center(
-                    child: Column(
-                      children:[
-                        CircularProgressIndicator(),
-                        SizedBox(height: 10),
-                        Text('Groq AI analizando flujo...', style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                  )
+                  const Center(child: Column(children:[CircularProgressIndicator(), SizedBox(height: 10), Text('Groq AI analizando flujo...', style: TextStyle(color: Colors.grey))]))
                 else if (controller.ultimaAlerta != null)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: controller.ultimaAlerta!.severidad == 'Crítica' 
-                          ? AppTheme.criticalColor 
-                          : (controller.ultimaAlerta!.severidad == 'Advertencia' ? AppTheme.warningColor : AppTheme.normalColor),
+                      color: controller.ultimaAlerta!.severidad == 'Crítica' ? AppTheme.criticalColor : (controller.ultimaAlerta!.severidad == 'Advertencia' ? AppTheme.warningColor : AppTheme.normalColor),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children:[
-                        Icon(
-                          controller.ultimaAlerta!.severidad == 'Crítica' ? Icons.warning : Icons.info, 
-                          color: Colors.white, 
-                          size: 35
-                        ),
+                        Icon(controller.ultimaAlerta!.severidad == 'Crítica' ? Icons.warning : Icons.info, color: Colors.white, size: 35),
                         const SizedBox(width: 15),
                         Expanded(
                           child: Column(
@@ -139,7 +120,6 @@ class DashboardScreen extends StatelessWidget {
                   ),
 
                 const Spacer(),
-
                 ElevatedButton.icon(
                   onPressed: controller.iaProcesando ? null : () => controller.enviarPayloadIA(),
                   icon: const Icon(Icons.psychology),

@@ -1,27 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // Variables de entorno
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/routes/app_routes.dart';
 import 'config/themes/app_theme.dart';
 import 'controllers/dashboard_controller.dart';
+import 'controllers/auth_controller.dart';
 
 Future<void> main() async {
-  // Aseguramos la inicialización de widgets antes de cargar el .env y Sqflite
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Cargamos las variables de entorno de forma segura
   await dotenv.load(fileName: ".env");
 
-  // Inicializamos el controlador principal
   final dashboardController = DashboardController();
-  await dashboardController.inicializarHistorial(); // Cargar datos de Sqflite
+  final authController = AuthController();
   
-  runApp(EdgeLeakApp(controller: dashboardController));
+  runApp(EdgeLeakApp(
+    dashboardController: dashboardController,
+    authController: authController,
+  ));
 }
 
 class EdgeLeakApp extends StatelessWidget {
-  final DashboardController controller;
+  final DashboardController dashboardController;
+  final AuthController authController;
 
-  const EdgeLeakApp({super.key, required this.controller});
+  const EdgeLeakApp({
+    super.key, 
+    required this.dashboardController,
+    required this.authController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -29,8 +34,8 @@ class EdgeLeakApp extends StatelessWidget {
       title: 'EdgeLeak AI MVP',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.getTheme(),
-      routes: AppRoutes.getRoutes(controller),
-      initialRoute: AppRoutes.dashboardScreen,
+      routes: AppRoutes.getRoutes(dashboardController, authController),
+      initialRoute: AppRoutes.loginScreen, // ¡Ahora iniciamos en el Login!
     );
   }
 }
