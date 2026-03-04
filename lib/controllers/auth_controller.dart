@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/models/usuario_model.dart';
 import '../data/services/database_service.dart';
@@ -8,7 +9,6 @@ class AuthController extends ChangeNotifier {
   bool isLoading = false;
   String errorMessage = '';
 
-  // Validadores dinámicos de contraseña
   bool hasMinLength = false;
   bool hasUppercase = false;
   bool hasNumber = false;
@@ -33,16 +33,45 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 🪄 NUEVO: Función para generar una contraseña infalible
+  String generarContrasenaSegura() {
+    const length = 12;
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    const specials = '!@#\$&*~';
+    
+    final rnd = Random();
+    String pass = '';
+    
+    // Forzamos que tenga al menos 1 de cada requisito
+    pass += uppercase[rnd.nextInt(uppercase.length)];
+    pass += lowercase[rnd.nextInt(lowercase.length)];
+    pass += numbers[rnd.nextInt(numbers.length)];
+    pass += specials[rnd.nextInt(specials.length)];
+
+    // Rellenamos el resto hasta 12 caracteres aleatorios
+    const allChars = uppercase + lowercase + numbers + specials;
+    for (int i = 4; i < length; i++) {
+      pass += allChars[rnd.nextInt(allChars.length)];
+    }
+
+    // Mezclamos la cadena para que los obligatorios no queden al principio
+    List<String> passList = pass.split('')..shuffle(rnd);
+    final finalPass = passList.join('');
+    
+    // Validamos automáticamente para que los checks verdes se enciendan
+    validatePassword(finalPass);
+    return finalPass;
+  }
+
   Future<UsuarioModel?> login(String correo, String password) async {
     isLoading = true;
     errorMessage = '';
     notifyListeners();
 
     final usuario = await _dbService.loginUsuario(correo, password);
-    
-    if (usuario == null) {
-      errorMessage = 'Correo o contraseña incorrectos';
-    }
+    if (usuario == null) errorMessage = 'Correo o contraseña incorrectos';
 
     isLoading = false;
     notifyListeners();
@@ -63,9 +92,7 @@ class AuthController extends ChangeNotifier {
     final nuevoUsuario = UsuarioModel(nombre: nombre, correo: correo, password: password);
     final exito = await _dbService.registrarUsuario(nuevoUsuario);
 
-    if (!exito) {
-      errorMessage = 'El correo ya está registrado';
-    }
+    if (!exito) errorMessage = 'El correo ya está registrado';
 
     isLoading = false;
     notifyListeners();

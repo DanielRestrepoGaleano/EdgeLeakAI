@@ -14,6 +14,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nombreController = TextEditingController();
   final _correoController = TextEditingController();
   final _passController = TextEditingController();
+  
+  // Variable para controlar el "ojito" de la contraseña
+  bool _ocultarPass = true; 
 
   Widget _buildCheck(String text, bool isValid) {
     return Row(
@@ -58,15 +61,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 20),
 
+                // Campo de Contraseña Mejorado (con visibilidad)
                 TextField(
                   controller: _passController,
-                  obscureText: true,
+                  obscureText: _ocultarPass,
                   onChanged: (val) => widget.authController.validatePassword(val),
-                  decoration: const InputDecoration(labelText: 'Crear Contraseña', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock_outline)),
+                  decoration: InputDecoration(
+                    labelText: 'Crear Contraseña', 
+                    border: const OutlineInputBorder(), 
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(_ocultarPass ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () {
+                        setState(() {
+                          _ocultarPass = !_ocultarPass;
+                        });
+                      },
+                    )
+                  ),
                 ),
-                const SizedBox(height: 15),
 
-                // Validadores Visuales en tiempo real
+                // 🪄 Botón de Auto-Generar Clave Segura
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      final claveSegura = widget.authController.generarContrasenaSegura();
+                      _passController.text = claveSegura;
+                      setState(() {
+                        _ocultarPass = false; // Mostramos la clave para que la copie
+                      });
+                    },
+                    icon: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
+                    label: const Text('Sugerir contraseña fuerte', style: TextStyle(color: AppTheme.primaryColor)),
+                  ),
+                ),
+                const SizedBox(height: 5),
+
+                // Validadores Visuales
                 Container(
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade300)),
@@ -81,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 5),
                       _buildCheck('Al menos 1 número', widget.authController.hasNumber),
                       const SizedBox(height: 5),
-                      _buildCheck('Al menos 1 carácter especial (!@#&*)', widget.authController.hasSpecialChar),
+                      _buildCheck('Al menos 1 carácter especial (!@#\$&*~)', widget.authController.hasSpecialChar),
                     ],
                   ),
                 ),
