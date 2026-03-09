@@ -13,14 +13,13 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    // Cambiamos el nombre a v2 para crear las tablas desde cero sin errores
-    String path = join(await getDatabasesPath(), 'edgeleak_v2.db');
+    // Versión 3: Añadimos la columna es_temporal
+    String path = join(await getDatabasesPath(), 'edgeleak_v3.db');
     
     return await openDatabase(
       path,
       version: 1,
       onCreate: (db, version) async {
-        // Tabla Historial
         await db.execute('''
           CREATE TABLE historial(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,20 +30,19 @@ class DatabaseService {
           )
         ''');
         
-        // Tabla Usuarios
         await db.execute('''
           CREATE TABLE usuarios(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT,
             correo TEXT UNIQUE,
-            password TEXT
+            password TEXT,
+            es_temporal INTEGER DEFAULT 0
           )
         ''');
       },
     );
   }
 
-  // ---- MÉTODOS DE HISTORIAL ----
   Future<void> insertarAlerta(AlertaFugaModel alerta) async {
     final db = await database;
     await db.insert('historial', alerta.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
@@ -56,14 +54,13 @@ class DatabaseService {
     return List.generate(maps.length, (i) => AlertaFugaModel.fromMap(maps[i]));
   }
 
-  // ---- MÉTODOS DE USUARIOS ----
   Future<bool> registrarUsuario(UsuarioModel usuario) async {
     final db = await database;
     try {
       await db.insert('usuarios', usuario.toMap());
       return true;
     } catch (e) {
-      return false; // Error (ej. correo duplicado)
+      return false; 
     }
   }
 
@@ -75,9 +72,29 @@ class DatabaseService {
       whereArgs:[correo, password],
     );
 
-    if (maps.isNotEmpty) {
-      return UsuarioModel.fromMap(maps.first);
-    }
+    if (maps.isNotEmpty) return UsuarioModel.fromMap(maps.first);
     return null;
+  }
+
+  Future<UsuarioModel?> obtenerUsuarioPorCorreo(String correo) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'usuarios',
+      where: 'correo = ?',
+      whereArgs:[correo],
+    );
+
+    if (maps.isNotEmpty) return UsuarioModel.fromMap(maps.first);
+    return null;
+  }
+
+  Future<void> actualizarPassword(int id, String newPassword, bool esTemporal) async {
+    final db = await database;
+    await db.update(
+      'usuarios',
+      {'password': newPassword, 'es_temporal': esTemporal ? 1 : 0},
+      where: 'id = ?',
+      whereArgs:[id],
+    );
   }
 }

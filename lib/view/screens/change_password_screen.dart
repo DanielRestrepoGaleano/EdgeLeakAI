@@ -1,8 +1,4 @@
-import os
-
-BASE_DIR = r"C:\Users\danie\OneDrive\Escritorio\edgeleak\lib"
-
-FILE_CONTENT = r"""import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../config/themes/app_theme.dart';
@@ -137,14 +133,3 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 }
-"""
-
-def parchar_error():
-    full_path = os.path.join(BASE_DIR, r"view\screens\change_password_screen.dart")
-    with open(full_path, 'w', encoding='utf-8') as f:
-        f.write(FILE_CONTENT)
-    print("✅ ¡Crash parchado con éxito!")
-    print("Haz un 'Hot Restart' (reiniciar la app, no solo reload) y vuelve a iniciar sesión con la clave temporal.")
-
-if __name__ == "__main__":
-    parchar_error()

@@ -57,7 +57,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       obscureText: true,
                       decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
                     ),
-                    const SizedBox(height: 30),
+                    
+                    // 💡 BOTÓN DE OLVIDÉ MI CONTRASEÑA
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          widget.authController.resetValidators();
+                          Navigator.pushNamed(context, AppRoutes.forgotPasswordScreen);
+                        },
+                        child: const Text('¿Olvidaste tu contraseña?', style: TextStyle(color: AppTheme.primaryColor)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
 
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
@@ -72,9 +84,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
 
                         if (usuario != null && context.mounted) {
-                          // Pasamos el nombre al Dashboard y navegamos
                           widget.dashboardController.setUsuarioLogueado(usuario.nombre);
-                          Navigator.pushReplacementNamed(context, AppRoutes.dashboardScreen);
+                          
+                          // 🔒 CIBERSEGURIDAD: Si la clave es temporal, atraparlo en el reseteo
+                          if (usuario.esTemporal == 1) {
+                            Navigator.pushReplacementNamed(context, AppRoutes.changePasswordScreen);
+                          } else {
+                            Navigator.pushReplacementNamed(context, AppRoutes.dashboardScreen);
+                          }
                         }
                       },
                       child: widget.authController.isLoading 

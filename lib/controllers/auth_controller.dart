@@ -2,12 +2,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/models/usuario_model.dart';
 import '../data/services/database_service.dart';
+import '../data/services/email_service.dart';
 
 class AuthController extends ChangeNotifier {
   final DatabaseService _dbService = DatabaseService();
+  final EmailService _emailService = EmailService();
   
   bool isLoading = false;
   String errorMessage = '';
+  UsuarioModel? usuarioActual; // Mantiene la sesión
 
   bool hasMinLength = false;
   bool hasUppercase = false;
@@ -33,7 +36,6 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 🪄 NUEVO: Función para generar una contraseña infalible
   String generarContrasenaSegura() {
     const length = 12;
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -44,23 +46,17 @@ class AuthController extends ChangeNotifier {
     final rnd = Random();
     String pass = '';
     
-    // Forzamos que tenga al menos 1 de cada requisito
     pass += uppercase[rnd.nextInt(uppercase.length)];
     pass += lowercase[rnd.nextInt(lowercase.length)];
     pass += numbers[rnd.nextInt(numbers.length)];
     pass += specials[rnd.nextInt(specials.length)];
 
-    // Rellenamos el resto hasta 12 caracteres aleatorios
     const allChars = uppercase + lowercase + numbers + specials;
-    for (int i = 4; i < length; i++) {
-      pass += allChars[rnd.nextInt(allChars.length)];
-    }
+    for (int i = 4; i < length; i++) pass += allChars[rnd.nextInt(allChars.length)];
 
-    // Mezclamos la cadena para que los obligatorios no queden al principio
     List<String> passList = pass.split('')..shuffle(rnd);
     final finalPass = passList.join('');
     
-    // Validamos automáticamente para que los checks verdes se enciendan
     validatePassword(finalPass);
     return finalPass;
   }
@@ -71,7 +67,11 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     final usuario = await _dbService.loginUsuario(correo, password);
-    if (usuario == null) errorMessage = 'Correo o contraseña incorrectos';
+    if (usuario == null) {
+      errorMessage = 'Correo o contraseña incorrectos';
+    } else {
+      usuarioActual = usuario; // Guardamos la sesión
+    }
 
     isLoading = false;
     notifyListeners();
@@ -79,11 +79,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> register(String nombre, String correo, String password) async {
-    if (!isPasswordValid) {
-      errorMessage = 'La contraseña no cumple los requisitos de seguridad';
-      notifyListeners();
-      return false;
-    }
+    if (!isPasswordValid) return false;
 
     isLoading = true;
     errorMessage = '';
@@ -97,5 +93,61 @@ class AuthController extends ChangeNotifier {
     isLoading = false;
     notifyListeners();
     return exito;
+  }
+
+  // 📧 NUEVO: Lógica de Recuperación de Contraseña
+  Future<bool> enviarCorreoRecuperacion(String correo) async {
+    isLoading = true;
+    errorMessage = '';
+    notifyListeners();
+
+    final usuario = await _dbService.obtenerUsuarioPorCorreo(correo);
+    
+    if (usuario == null) {
+      errorMessage = 'No hay ninguna cuenta asociada a este correo.';
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
+
+    String tempPass = generarContrasenaSegura();
+    
+    // 1. Guardar en Base de Datos (Marcando como temporal = true)
+    await _dbService.actualizarPassword(usuario.id!, tempPass, true);
+
+    // 2. Enviar Correo
+    final correoEnviado = await _emailService.enviarCorreoRecuperacion(correo, tempPass);
+
+    if (!correoEnviado) {
+      errorMessage = 'Error al enviar el correo. Revisa tu conexión o configuración.';
+    }
+
+    isLoading = false;
+    notifyListeners();
+    return correoEnviado;
+  }
+
+  // 🔐 NUEVO: Lógica para el Cambio Obligatorio
+  Future<bool> cambiarPasswordObligatorio(String nuevaPassword) async {
+    if (!isPasswordValid || usuarioActual == null) return false;
+
+    isLoading = true;
+    notifyListeners();
+
+    // Actualizamos en BD (Marcando temporal = false)
+    await _dbService.actualizarPassword(usuarioActual!.id!, nuevaPassword, false);
+    
+    // Actualizamos la sesión en memoria
+    usuarioActual = UsuarioModel(
+      id: usuarioActual!.id,
+      nombre: usuarioActual!.nombre,
+      correo: usuarioActual!.correo,
+      password: nuevaPassword,
+      esTemporal: 0,
+    );
+
+    isLoading = false;
+    notifyListeners();
+    return true;
   }
 }
