@@ -4,6 +4,7 @@ class UsuarioModel {
   final String correo;
   final String password;
   final int esTemporal; // 0 = Falso, 1 = Verdadero
+  final String rol;      // 'admin' o 'operador'
 
   UsuarioModel({
     this.id,
@@ -11,6 +12,7 @@ class UsuarioModel {
     required this.correo,
     required this.password,
     this.esTemporal = 0,
+    this.rol = 'operador', // Valor por defecto para evitar errores de compilación
   });
 
   factory UsuarioModel.fromMap(Map<String, dynamic> map) {
@@ -20,6 +22,7 @@ class UsuarioModel {
       correo: map['correo'],
       password: map['password'],
       esTemporal: map['es_temporal'] ?? 0,
+      rol: map['rol'] ?? 'operador',
     );
   }
 
@@ -30,6 +33,10 @@ class UsuarioModel {
       'correo': correo,
       'password': password,
       'es_temporal': esTemporal,
+      'rol': rol,
     };
   }
+
+  // Método de utilidad para la lógica de privilegios
+  bool esAdmin() => rol == 'admin';
 }

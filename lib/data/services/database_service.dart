@@ -1,7 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/alerta_fuga_model.dart';
-import '../models/usuario_model.dart';
+import '../models/usuario_model.dart'; // Importación única corregida
 
 class DatabaseService {
   static Database? _database;
@@ -13,8 +13,8 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    // Versión 3: Añadimos la columna es_temporal
-    String path = join(await getDatabasesPath(), 'edgeleak_v3.db');
+    // Versión 4: Soporta la columna 'rol' para la gestión de usuarios
+    String path = join(await getDatabasesPath(), 'edgeleak_v4.db');
     
     return await openDatabase(
       path,
@@ -36,23 +36,54 @@ class DatabaseService {
             nombre TEXT,
             correo TEXT UNIQUE,
             password TEXT,
-            es_temporal INTEGER DEFAULT 0
+            es_temporal INTEGER DEFAULT 0,
+            rol TEXT DEFAULT 'operador'
           )
         ''');
       },
     );
   }
 
-  Future<void> insertarAlerta(AlertaFugaModel alerta) async {
+  // === MÉTODOS DE USUARIOS (CRUD COMPLETO) ===
+
+  // Soluciona el error de "obtenerTodosLosUsuarios" en el controlador
+  Future<List<UsuarioModel>> obtenerTodosLosUsuarios() async {
     final db = await database;
-    await db.insert('historial', alerta.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final List<Map<String, dynamic>> maps = await db.query('usuarios');
+    return maps.map((e) => UsuarioModel.fromMap(e)).toList();
   }
 
-  Future<List<AlertaFugaModel>> obtenerHistorial() async {
+  // Soluciona el error de "eliminarUsuario" en el controlador
+  Future<int> eliminarUsuario(int id) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('historial', orderBy: 'id DESC');
-    return List.generate(maps.length, (i) => AlertaFugaModel.fromMap(maps[i]));
+    return await db.delete('usuarios', where: 'id = ?', whereArgs: [id]);
   }
+
+  // Soluciona el error de "actualizarUsuario" en el controlador
+  Future<int> actualizarUsuario(UsuarioModel usuario) async {
+    final db = await database;
+    return await db.update(
+      'usuarios',
+      usuario.toMap(),
+      where: 'id = ?',
+      whereArgs: [usuario.id],
+    );
+  }
+
+  // Tu método esencial para validación por correo
+  Future<UsuarioModel?> obtenerUsuarioPorCorreo(String correo) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'usuarios',
+      where: 'correo = ?',
+      whereArgs: [correo],
+    );
+
+    if (maps.isNotEmpty) return UsuarioModel.fromMap(maps.first);
+    return null;
+  }
+
+  // === MÉTODOS COMPLEMENTARIOS ===
 
   Future<bool> registrarUsuario(UsuarioModel usuario) async {
     final db = await database;
@@ -76,18 +107,6 @@ class DatabaseService {
     return null;
   }
 
-  Future<UsuarioModel?> obtenerUsuarioPorCorreo(String correo) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'usuarios',
-      where: 'correo = ?',
-      whereArgs:[correo],
-    );
-
-    if (maps.isNotEmpty) return UsuarioModel.fromMap(maps.first);
-    return null;
-  }
-
   Future<void> actualizarPassword(int id, String newPassword, bool esTemporal) async {
     final db = await database;
     await db.update(
@@ -96,5 +115,18 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs:[id],
     );
+  }
+
+  // === MÉTODOS DE HISTORIAL ===
+
+  Future<void> insertarAlerta(AlertaFugaModel alerta) async {
+    final db = await database;
+    await db.insert('historial', alerta.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<AlertaFugaModel>> obtenerHistorial() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('historial', orderBy: 'id DESC');
+    return List.generate(maps.length, (i) => AlertaFugaModel.fromMap(maps[i]));
   }
 }
