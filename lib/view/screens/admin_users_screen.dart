@@ -98,7 +98,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 leading: CircleAvatar(
                   backgroundColor: user.rol == 'admin' ? Colors.red : Colors.blue,
                   child: Text(
-                    user.nombre[0].toUpperCase(), 
+                    user.nombre.isNotEmpty ? user.nombre[0].toUpperCase() : '?', 
                     style: const TextStyle(color: Colors.white)
                   ),
                 ),
@@ -130,7 +130,19 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final exito = await widget.authController.eliminarUsuario(usuario.id!);
+              final id = usuario.id;
+              if (id == null) {
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No se puede eliminar este usuario porque no tiene un ID válido.'),
+                    ),
+                  );
+                }
+                return;
+              }
+              final exito = await widget.authController.eliminarUsuario(id);
               if (mounted) {
                 Navigator.pop(context);
                 if (!exito && widget.authController.errorMessage.isNotEmpty) {

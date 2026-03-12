@@ -37,6 +37,6 @@ class UsuarioModel {
     };
   }
 
-  // Método de utilidad para la lógica de privilegios
-  bool esAdmin() => rol == 'admin';
+  // Getter de utilidad para la lógica de privilegios
+  bool get esAdmin => rol == 'admin';
 }
