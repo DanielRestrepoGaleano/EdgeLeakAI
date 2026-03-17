@@ -13,12 +13,12 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    // Versión 4: Soporta la columna 'rol' para la gestión de usuarios
-    String path = join(await getDatabasesPath(), 'edgeleak_v4.db');
+    // Mantenemos el mismo archivo y usamos versión 2 con migración para añadir la columna 'rol'
+    String path = join(await getDatabasesPath(), 'edgeleak_v3.db');
     
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE historial(
@@ -40,6 +40,14 @@ class DatabaseService {
             rol TEXT DEFAULT 'operador'
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // Migración: añadir columna 'rol' a instalaciones existentes
+          await db.execute(
+            "ALTER TABLE usuarios ADD COLUMN rol TEXT DEFAULT 'operador'",
+          );
+        }
       },
     );
   }

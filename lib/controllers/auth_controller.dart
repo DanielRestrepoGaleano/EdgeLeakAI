@@ -163,6 +163,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<bool> eliminarUsuario(int id) async {
+    errorMessage = '';
     // Seguridad básica: No permitir que el usuario logueado se borre a sí mismo
     if (usuarioActual?.id == id) {
       errorMessage = 'No puedes eliminar tu propia cuenta.';
@@ -175,6 +176,8 @@ class AuthController extends ChangeNotifier {
       await obtenerTodosLosUsuarios(); // Refrescar lista automáticamente
       return true;
     }
+    errorMessage = 'No se pudo eliminar el usuario. Es posible que ya no exista.';
+    notifyListeners();
     return false;
   }
 
