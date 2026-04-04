@@ -132,7 +132,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   // ✨ NUEVO: DIÁLOGO PARA EDITAR USUARIO
   // ✨ NUEVO: DIÁLOGO PARA EDITAR USUARIO CON SEGURIDAD
   void _mostrarDialogoEditar(UsuarioModel usuario) {
-    final nombreController = TextEditingController(text: usuario.nombre);
+    final primerNombreController = TextEditingController(text: usuario.primerNombre);
+    final segundoNombreController = TextEditingController(text: usuario.segundoNombre);
+    final primerApellidoController = TextEditingController(text: usuario.primerApellido);
+    final segundoApellidoController = TextEditingController(text: usuario.segundoApellido);
     final passController =
         TextEditingController(); // 🟢 Controlador de contraseña
     String rolSeleccionado = usuario.rol;
@@ -145,60 +148,86 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           builder: (context, setStateDialog) {
             return AlertDialog(
               title: const Text('Editar Usuario'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nombreController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre Completo',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  DropdownButtonFormField<String>(
-                    value: rolSeleccionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Rol del Sistema',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'operador',
-                        child: Text('Operador'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: primerNombreController,
+                      decoration: const InputDecoration(
+                        labelText: 'Primer Nombre *',
+                        border: OutlineInputBorder(),
                       ),
-                      DropdownMenuItem(
-                        value: 'admin',
-                        child: Text('Administrador'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: segundoNombreController,
+                      decoration: const InputDecoration(
+                        labelText: 'Segundo Nombre',
+                        border: OutlineInputBorder(),
                       ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null)
-                        setStateDialog(() => rolSeleccionado = val);
-                    },
-                  ),
-                  const SizedBox(height: 15),
-                  // 🛡️ Campo de confirmación de contraseña
-                  TextField(
-                    controller: passController,
-                    obscureText: ocultarPass,
-                    decoration: InputDecoration(
-                      labelText: 'Tu contraseña (Seguridad)',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.security),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          ocultarPass ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: primerApellidoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Primer Apellido *',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: segundoApellidoController,
+                      decoration: const InputDecoration(
+                        labelText: 'Segundo Apellido',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    DropdownButtonFormField<String>(
+                      value: rolSeleccionado,
+                      decoration: const InputDecoration(
+                        labelText: 'Rol del Sistema',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'operador',
+                          child: Text('Operador'),
                         ),
-                        onPressed: () {
-                          setStateDialog(() {
-                            ocultarPass = !ocultarPass;
-                          });
-                        },
+                        DropdownMenuItem(
+                          value: 'admin',
+                          child: Text('Administrador'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null)
+                          setStateDialog(() => rolSeleccionado = val);
+                      },
+                    ),
+                    const SizedBox(height: 15),
+                    // 🛡️ Campo de confirmación de contraseña
+                    TextField(
+                      controller: passController,
+                      obscureText: ocultarPass,
+                      decoration: InputDecoration(
+                        labelText: 'Tu contraseña (Seguridad)',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.security),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            ocultarPass ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setStateDialog(() {
+                              ocultarPass = !ocultarPass;
+                            });
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -224,7 +253,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     // Construimos el usuario actualizado
                     final usuarioActualizado = UsuarioModel(
                       id: usuario.id,
-                      nombre: nombreController.text.trim(),
+                      primerNombre: primerNombreController.text.trim(),
+                      segundoNombre: segundoNombreController.text.trim(),
+                      primerApellido: primerApellidoController.text.trim(),
+                      segundoApellido: segundoApellidoController.text.trim(),
                       correo: usuario.correo,
                       password: usuario.password,
                       esTemporal: usuario.esTemporal,

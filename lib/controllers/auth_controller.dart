@@ -81,15 +81,30 @@ class AuthController extends ChangeNotifier {
     return usuario;
   }
 
-  Future<bool> register(String nombre, String correo, String password, {String rol = 'operador'}) async {
+  Future<bool> register(
+    String primerNombre,
+    String segundoNombre,
+    String primerApellido,
+    String segundoApellido,
+    String correo,
+    String password, {
+    String rol = 'operador',
+  }) async {
     if (!isPasswordValid) return false;
 
     isLoading = true;
     errorMessage = '';
     notifyListeners();
 
-    // Ahora incluimos el rol en el registro
-    final nuevoUsuario = UsuarioModel(nombre: nombre, correo: correo, password: password, rol: rol);
+    final nuevoUsuario = UsuarioModel(
+      primerNombre: primerNombre,
+      segundoNombre: segundoNombre,
+      primerApellido: primerApellido,
+      segundoApellido: segundoApellido,
+      correo: correo,
+      password: password,
+      rol: rol,
+    );
     final exito = await _dbService.registrarUsuario(nuevoUsuario);
 
     if (!exito) errorMessage = 'El correo ya está registrado';
@@ -134,15 +149,9 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     await _dbService.actualizarPassword(usuarioActual!.id!, nuevaPassword, false);
-    
-    usuarioActual = UsuarioModel(
-      id: usuarioActual!.id,
-      nombre: usuarioActual!.nombre,
-      correo: usuarioActual!.correo,
-      password: nuevaPassword,
-      esTemporal: 0,
-      rol: usuarioActual!.rol, // Mantenemos el rol al actualizar sesión
-    );
+
+    // Limpiar la sesión: el usuario debe autenticarse de nuevo con la nueva contraseña
+    usuarioActual = null;
 
     isLoading = false;
     notifyListeners();

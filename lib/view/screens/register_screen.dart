@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // ¡Importante para leer el .env!
 import '../../controllers/auth_controller.dart';
 import '../../config/themes/app_theme.dart';
+import '../../config/routes/app_routes.dart';
 
 class RegisterScreen extends StatefulWidget {
   final AuthController authController;
@@ -12,13 +13,24 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _nombreController = TextEditingController();
+  final _primerNombreController = TextEditingController();
+  final _segundoNombreController = TextEditingController();
+  final _primerApellidoController = TextEditingController();
+  final _segundoApellidoController = TextEditingController();
   final _correoController = TextEditingController();
   final _passController = TextEditingController();
-  final _codigoAdminController =
-      TextEditingController(); // 🟢 Nuevo controlador para el código
+  final _codigoAdminController = TextEditingController();
 
   bool _ocultarPass = true;
+  String _correoError = '';
+
+  static final _emailRegex = RegExp(
+    r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$',
+  );
+
+  bool _validarCorreo(String correo) {
+    return _emailRegex.hasMatch(correo);
+  }
 
   Widget _buildCheck(String text, bool isValid) {
     return Row(
@@ -61,23 +73,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
 
+                // Primer Nombre (obligatorio)
                 TextField(
-                  controller: _nombreController,
+                  controller: _primerNombreController,
                   decoration: const InputDecoration(
-                    labelText: 'Nombre Completo',
+                    labelText: 'Primer Nombre *',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 15),
 
+                // Segundo Nombre (opcional)
+                TextField(
+                  controller: _segundoNombreController,
+                  decoration: const InputDecoration(
+                    labelText: 'Segundo Nombre',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Primer Apellido (obligatorio)
+                TextField(
+                  controller: _primerApellidoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Primer Apellido *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.badge),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Segundo Apellido (opcional)
+                TextField(
+                  controller: _segundoApellidoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Segundo Apellido',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.badge_outlined),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Correo electrónico con validación
                 TextField(
                   controller: _correoController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo Electrónico',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
+                  onChanged: (val) {
+                    setState(() {
+                      _correoError = val.isNotEmpty && !_validarCorreo(val)
+                          ? 'Ingresa un correo electrónico válido (ejemplo@dominio.com)'
+                          : '';
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Correo Electrónico *',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.email),
+                    errorText: _correoError.isNotEmpty ? _correoError : null,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -88,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onChanged: (val) =>
                       widget.authController.validatePassword(val),
                   decoration: InputDecoration(
-                    labelText: 'Crear Contraseña',
+                    labelText: 'Crear Contraseña *',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
@@ -166,7 +221,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // 🟢 Campo de Código Admin Opcional
+                // Campo de Código Admin Opcional
                 TextField(
                   controller: _codigoAdminController,
                   decoration: const InputDecoration(
@@ -175,7 +230,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.security),
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 10),
+
+                Text(
+                  '* Campos obligatorios',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+                const SizedBox(height: 20),
 
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -190,22 +251,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           widget.authController.isLoading)
                       ? null
                       : () async {
-                          // 🟢 Verificación de la variable de entorno
+                          final primerNombre = _primerNombreController.text.trim();
+                          final primerApellido = _primerApellidoController.text.trim();
+                          final correo = _correoController.text.trim();
+
+                          // Validar campos obligatorios de nombre
+                          if (primerNombre.isEmpty || primerApellido.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Primer nombre y primer apellido son obligatorios.'),
+                                backgroundColor: AppTheme.criticalColor,
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Validar correo con regex
+                          if (!_validarCorreo(correo)) {
+                            setState(() {
+                              _correoError = correo.isEmpty
+                                  ? 'El correo es obligatorio.'
+                                  : 'Ingresa un correo electrónico válido (ejemplo@dominio.com)';
+                            });
+                            return;
+                          }
+
                           String rolAsignado = 'operador';
                           final secretCode = dotenv.env['SECRET_ADMIN_CODE'];
 
                           if (secretCode != null &&
-                              _codigoAdminController.text.trim() ==
-                                  secretCode) {
+                              _codigoAdminController.text.trim() == secretCode) {
                             rolAsignado = 'admin';
                           }
 
                           final exito = await widget.authController.register(
-                            _nombreController.text.trim(),
-                            _correoController.text.trim(),
+                            primerNombre,
+                            _segundoNombreController.text.trim(),
+                            primerApellido,
+                            _segundoApellidoController.text.trim(),
+                            correo,
                             _passController.text.trim(),
-                            rol:
-                                rolAsignado, // Pasamos el rol que acabamos de evaluar
+                            rol: rolAsignado,
                           );
 
                           if (exito && context.mounted) {
@@ -218,7 +304,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 backgroundColor: AppTheme.normalColor,
                               ),
                             );
-                            Navigator.pop(context);
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              AppRoutes.loginScreen,
+                              (route) => false,
+                            );
                           }
                         },
                   child: widget.authController.isLoading

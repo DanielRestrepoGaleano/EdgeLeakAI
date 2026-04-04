@@ -116,8 +116,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       final exito = await widget.authController.cambiarPasswordObligatorio(_passController.text.trim());
                       
                       if (exito && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña actualizada con éxito.'), backgroundColor: AppTheme.normalColor));
-                        Navigator.pushReplacementNamed(context, AppRoutes.dashboardScreen);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña actualizada. Inicia sesión con tu nueva clave.'), backgroundColor: AppTheme.normalColor));
+                        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.loginScreen, (route) => false);
                       }
                     },
                     child: widget.authController.isLoading 

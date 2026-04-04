@@ -13,12 +13,11 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    // Mantenemos el mismo archivo y usamos versión 2 con migración para añadir la columna 'rol'
     String path = join(await getDatabasesPath(), 'edgeleak_v3.db');
     
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE historial(
@@ -33,7 +32,10 @@ class DatabaseService {
         await db.execute('''
           CREATE TABLE usuarios(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT,
+            primer_nombre TEXT NOT NULL DEFAULT '',
+            segundo_nombre TEXT DEFAULT '',
+            primer_apellido TEXT NOT NULL DEFAULT '',
+            segundo_apellido TEXT DEFAULT '',
             correo TEXT UNIQUE,
             password TEXT,
             es_temporal INTEGER DEFAULT 0,
@@ -43,9 +45,19 @@ class DatabaseService {
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          // Migración: añadir columna 'rol' a instalaciones existentes
           await db.execute(
             "ALTER TABLE usuarios ADD COLUMN rol TEXT DEFAULT 'operador'",
+          );
+        }
+        if (oldVersion < 3) {
+          // Migración: añadir los campos de nombre separados
+          await db.execute("ALTER TABLE usuarios ADD COLUMN primer_nombre TEXT DEFAULT ''");
+          await db.execute("ALTER TABLE usuarios ADD COLUMN segundo_nombre TEXT DEFAULT ''");
+          await db.execute("ALTER TABLE usuarios ADD COLUMN primer_apellido TEXT DEFAULT ''");
+          await db.execute("ALTER TABLE usuarios ADD COLUMN segundo_apellido TEXT DEFAULT ''");
+          // Migrar nombre legado al primer_nombre para no perder datos existentes
+          await db.execute(
+            "UPDATE usuarios SET primer_nombre = nombre WHERE nombre IS NOT NULL AND nombre != ''",
           );
         }
       },
