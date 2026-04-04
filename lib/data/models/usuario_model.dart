@@ -32,7 +32,9 @@ class UsuarioModel {
 
   factory UsuarioModel.fromMap(Map<String, dynamic> map) {
     // Si los campos nuevos existen y primer_nombre tiene valor, úsalos.
-    // Si no (registros migrados), cae en el campo legado 'nombre'.
+    // Si no (registros migrados con campo legado 'nombre'), usa el valor legado.
+    // Si ambos están vacíos, primerNombre quedará como cadena vacía (el formulario
+    // de registro impide guardar registros con primer_nombre vacío desde la v5).
     final primerNombreLegado = map['nombre'] as String? ?? '';
     final primerNombreNuevo = map['primer_nombre'] as String? ?? '';
 

@@ -32,9 +32,9 @@ class DatabaseService {
         await db.execute('''
           CREATE TABLE usuarios(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            primer_nombre TEXT NOT NULL DEFAULT '',
+            primer_nombre TEXT DEFAULT '',
             segundo_nombre TEXT DEFAULT '',
-            primer_apellido TEXT NOT NULL DEFAULT '',
+            primer_apellido TEXT DEFAULT '',
             segundo_apellido TEXT DEFAULT '',
             correo TEXT UNIQUE,
             password TEXT,
