@@ -1,0 +1,741 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{mdframed}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\geometry{margin=2.5cm}
+
+% ---- Colores del sistema ----
+\definecolor{primaryblue}{RGB}{33,150,243}
+\definecolor{criticalred}{RGB}{244,67,54}
+\definecolor{normalgreen}{RGB}{76,175,80}
+\definecolor{warningorange}{RGB}{255,152,0}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{darkgray}{RGB}{55,55,55}
+\definecolor{accentpurple}{RGB}{103,58,183}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{EdgeLeak AI -- Informe Ejecutivo}
+\lhead{Estado del Arte y Glosario Técnico}
+\cfoot{\thepage}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=primaryblue,
+  urlcolor=primaryblue,
+  citecolor=primaryblue,
+  pdftitle={Estado del Arte y Glosario Técnico - EdgeLeak AI},
+  pdfauthor={Proyecto EdgeLeak AI},
+}
+
+\titleformat{\section}{\Large\bfseries\color{primaryblue}}{}{0em}{\thesection.\enspace}
+\titleformat{\subsection}{\large\bfseries\color{darkgray}}{}{0em}{\thesubsection.\enspace}
+\titleformat{\subsubsection}{\normalsize\bfseries}{}{0em}{\thesubsubsection.\enspace}
+
+% ====================================================================
+\title{
+  \Huge\textbf{Informe Ejecutivo -- Sección de Estado del Arte}\\[0.5em]
+  \textcolor{primaryblue}{\rule{\linewidth}{1.5pt}}\\[0.3em]
+  \Large\textbf{EdgeLeak AI}\\[0.2em]
+  \large Análisis de Brechas, Justificación Técnica y Glosario\\[0.5em]
+  \normalsize Basado en el análisis de 13 referentes del estado del arte
+}
+\author{Proyecto EdgeLeak AI}
+\date{\today}
+% ====================================================================
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{mdframed}[linecolor=primaryblue,linewidth=1.5pt,backgroundcolor=blue!3]
+\textbf{Alcance de esta sección:} Este documento constituye la sección de Estado del Arte
+del informe ejecutivo de EdgeLeak~AI. Identifica las tres brechas principales detectadas
+en la revisión sistemática del mapa de tendencias, presenta la justificación técnica de
+por qué ninguno de los 13~referentes analizados resuelve dichas brechas de forma integral,
+y concluye con un glosario completo de los términos técnicos empleados a lo largo del proyecto.
+\end{mdframed}
+
+\vspace{1em}
+\tableofcontents
+\newpage
+
+% ====================================================================
+\section{Estado del Arte: Análisis de 13 Referentes}
+% ====================================================================
+
+La revisión sistemática de la literatura y de productos comerciales arroja un universo
+de 13~referentes organizados en cuatro categorías: trabajos académicos/prototipos (5),
+papers científicos de alto impacto (5), documentación técnica oficial (1) y repositorios
+\textit{open source} (1). La siguiente tabla consolida sus características principales y
+las brechas que cada uno deja abiertas.
+
+\begin{longtable}{>{\small}p{0.4cm} >{\small}p{3.8cm} >{\small}p{2.4cm} >{\small}p{2.4cm} >{\small}p{4.2cm}}
+\caption{Matriz comparativa de los 13 referentes del estado del arte} \label{tab:matriz-comparativa} \\
+\toprule
+\textbf{\#} & \textbf{Referente} & \textbf{Hardware / Sensores} & \textbf{Software / IA} & \textbf{Brecha detectada} \\
+\midrule
+\endfirsthead
+\multicolumn{5}{c}{\small\textit{(continúa en la siguiente página)}} \\
+\toprule
+\textbf{\#} & \textbf{Referente} & \textbf{Hardware / Sensores} & \textbf{Software / IA} & \textbf{Brecha detectada} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+1 & Anónimo (s.f.) -- Prototipo detección doméstica & Arduino Uno, sensor de humedad/nivel & Lógica condicional (If/Else), buzzer & Solo alerta ante inundación visible; no detecta microfugas ocultas. \\[0.4em]
+2 & De Lima Rosado (2025) -- Seguridad IoT & N/A (arquitectura de red) & Protocolos de seguridad, cifrado WiFi & Enfoque exclusivo en ciberseguridad; sin innovación en detección física o Edge Computing. \\[0.4em]
+3 & Islam \textit{et al.} (2023) -- IoT + ML, IEEE & Microcontroladores WiFi, medidores de flujo & ML clásico (Random Forest/SVM), Nube & Dependencia de la nube para ejecutar IA; latencia e inoperatividad sin internet. \\[0.4em]
+4 & Kang \textit{et al.} (2023) -- Vibración, MDPI & Sensores piezoeléctricos de alta frecuencia & Análisis espectral, ML & Validado únicamente en entornos industriales; falla ante ruido doméstico cotidiano. \\[0.4em]
+5 & Edge Impulse (2023-2024) -- TinyML/ESP32 & ESP32, micrófonos, acelerómetros & TinyML, Edge Impulse Studio, C++ & Herramienta genérica (vibración de motores); no calibrada para dinámica de fluidos en el hogar. \\[0.4em]
+6 & Escobar \& López (2016) -- Redes de distribución & Arduino, sensor de flujo YF-S201 & Lógica en C++, pantalla LCD & El sensor de flujo tipo turbina no responde a micro-caudales (\textless{}0.1 L/min). \\[0.4em]
+7 & Rubiños \textit{et al.} (2023) -- Smart Cities & Geófonos, medidores electromagnéticos macro & IA (redes neuronales, SVM) en servidores & Escala macro (acueductos); requiere alto cómputo en servidor; no aplicable al hogar. \\[0.4em]
+8 & Farah \& Shahrour (2024) -- Review MDPI & Sensores acústicos, medidores IoT & IA, ML clásico & Foco en redes macro de empresas públicas; vacío total en Smart Home residencial. \\[0.4em]
+9 & Corado (2025) -- Smart Cities, UOC & IoT, sensórica en tuberías & ML, modelos de optimización & Solución para infraestructura pública con servidores externos; sin Edge Computing. \\[0.4em]
+10 & Islam \textit{et al.} (2022) -- Review IEEE & WSN, sensores de presión y acústicos & IoT, análisis de datos en la nube & Tuberías subterráneas y grandes caudales; sin filtrado de ruido doméstico. \\[0.4em]
+11 & Sagat (s.f.) -- ESP8266 Leak Sensor (GitHub) & ESP8266, sensor genérico de lluvia & Arduino IDE, API PushBullet & Sensor pasivo (reactivo); sin IA ni sensor preventivo acústico. \\[0.4em]
+12 & Dixit \textit{et al.} (2017) -- Calidad/Nivel IRJET & Sensores de presión, nivel y calidad & Notificaciones SMS & Depende de caída abrupta de presión; insensible a micro-goteos por goteo lento. \\[0.4em]
+13 & Bruno \textit{et al.} (2021) -- Monitoreo presión MDPI & Arduino, transductores de presión, módulo SD & Datalogging pasivo & Sistema de registro diferido (SD); no alerta en tiempo real ni usa IA local. \\
+\end{longtable}
+
+\newpage
+
+% ====================================================================
+\section{Las Tres Brechas Principales del Estado del Arte}
+% ====================================================================
+
+Del análisis cruzado del mapa de tendencias y la revisión de los 13 referentes emergen
+tres brechas estructurales que ningún referente resuelve de manera integral. Estas brechas
+constituyen la \textbf{oportunidad de mercado y la justificación técnica} del proyecto
+EdgeLeak~AI.
+
+% -----------------------------------------------------------
+\subsection{Brecha 1: Prevención y Escala --- Reactivo/Macro vs.\ Predictivo/Micro}
+% -----------------------------------------------------------
+
+\begin{mdframed}[linecolor=criticalred,linewidth=1pt,backgroundcolor=red!3]
+\textbf{Hallazgo:} El mercado doméstico solo ofrece sensores reactivos de inundación
+(detectan agua ya acumulada), mientras que las soluciones con Inteligencia Artificial
+predictiva existen únicamente a escala de \emph{Smart City} para macro-acueductos.
+Existe un vacío absoluto en la franja \emph{Smart Home} para micro-goteos domésticos
+progresivos (rango de 0{,}1 a 1{,}0 L/min).
+\end{mdframed}
+
+\vspace{0.6em}
+
+\subsubsection{Evidencia en los referentes}
+
+Los sensores comerciales más vendidos (Xiaomi/Tuya Water Leak Sensor, referente~11
+de Sagat) operan bajo un principio \textit{100\% reactivo}: solo generan una alarma
+cuando el agua toca físicamente sus electrodos. Esto implica que la fuga ya es visible
+y el daño al mobiliario ya ha comenzado. Por otra parte, las soluciones con IA genuina
+---Corado (2025), Rubiños \textit{et al.} (2023), Farah \& Shahrour (2024), Islam
+\textit{et al.} (2022)--- están diseñadas para monitorear tuberías de distribución
+municipal (acueductos de ciudad), requiriendo sensores industriales costosos y capacidad
+de cómputo en servidores externos.
+
+\subsubsection{Referentes que NO resuelven esta brecha}
+
+\begin{itemize}[nosep]
+  \item Referentes 1 y 11 (Anónimo; Sagat): Reactivos por diseño, no predictivos.
+  \item Referentes 7, 8 y 9 (Rubiños; Farah; Corado): Escala macro, incompatibles con domótica.
+  \item Referentes 3, 10 (Islam 2022, 2023): Infraestructura subterránea, no residencial.
+\end{itemize}
+
+\subsubsection{Cómo EdgeLeak AI resuelve esta brecha}
+
+EdgeLeak~AI traduce la inteligencia de detección de redes macro en un nodo compacto de
+\textit{Smart Home}. Mediante un modelo \textbf{TinyML} entrenado con firmas acústicas
+de goteo real y desplegado localmente en un \textbf{ESP32}, el sistema analiza
+continuamente la vibración de la tubería bajo el lavaplatos. Esto permite anticipar la
+microfuga en su fase de inicio ---cuando el desgaste del empaque genera turbulencia
+audible pero el agua aún no ha llegado a acumularse--- convirtiendo un paradigma
+\textit{reactivo} en uno genuinamente \textit{predictivo} para el entorno doméstico.
+
+% -----------------------------------------------------------
+\subsection{Brecha 2: Falsos Positivos --- Ausencia de Sensor Fusion}
+% -----------------------------------------------------------
+
+\begin{mdframed}[linecolor=warningorange,linewidth=1pt,backgroundcolor=orange!3]
+\textbf{Hallazgo:} Los sensores acústicos y piezoeléctricos, aunque confirman ser el
+estándar tecnológico para detectar fugas invisibles, producen un alto índice de
+falsos positivos en entornos domésticos. El ruido generado por el uso cotidiano del
+fregadero (lavado de platos, paso de agua) es indistinguible para un sistema monomodal
+que analiza únicamente la señal acústica.
+\end{mdframed}
+
+\vspace{0.6em}
+
+\subsubsection{Evidencia en los referentes}
+
+Kang \textit{et al.} (2023) demuestran que las firmas de vibración son el método de
+mayor precisión para detectar fugas presurizadas, pero sus pruebas se realizan en
+entornos industriales controlados sin interferencias acústicas. Islam \textit{et al.}
+(2022) reconocen explícitamente en su \textit{review} que los sensores acústicos en
+tuberías subterráneas captan interferencias del entorno. El prototipo de Sagat (referente
+11) y el sistema de Anónimo (referente 1) no cuentan con ningún mecanismo de
+discriminación contextual: cualquier humedad activa la alarma, independientemente de
+si es uso normal o fuga real.
+
+\subsubsection{Referentes que NO resuelven esta brecha}
+
+\begin{itemize}[nosep]
+  \item Referentes 4 y 5 (Kang; Edge Impulse): Sensor único (vibración/audio); sin contexto de flujo.
+  \item Referentes 1, 6 y 11 (Anónimo; Escobar; Sagat): Lógica binaria sin cruce de variables.
+  \item Referentes 10 y 12 (Islam 2022; Dixit): No contemplan el ruido doméstico en su diseño.
+\end{itemize}
+
+\subsubsection{Cómo EdgeLeak AI resuelve esta brecha}
+
+EdgeLeak~AI implementa una estrategia de \textbf{Sensor Fusion} que cruza dos señales
+físicas complementarias:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Señal acústica/vibración} (micrófono MEMS INMP441 o disco piezoeléctrico
+    adherido al tubo): captura la firma espectral del fluido.
+  \item \textbf{Señal de flujo} (sensor de efecto Hall YF-S201): actúa como
+    \emph{interruptor de contexto}.
+\end{enumerate}
+
+\noindent La lógica de inferencia del modelo TinyML opera sobre la combinación de ambas
+señales:
+
+\begin{center}
+\begin{tabular}{ll l}
+\toprule
+\textbf{Flujo} & \textbf{Señal acústica} & \textbf{Decisión del sistema} \\
+\midrule
+Caudal $>$ 0 & Ruido presente & Uso normal (grifo abierto) $\rightarrow$ Sin alerta \\
+Caudal $= 0$ & Firma de goteo & Microfuga silenciosa $\rightarrow$ \textbf{Alerta crítica} \\
+Caudal $= 0$ & Sin señal & Reposo normal $\rightarrow$ Sin alerta \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Este mecanismo de contexto elimina estructuralmente la categoría de falsos
+positivos por uso cotidiano, problema que ningún referente del estado del arte resuelve.
+
+% -----------------------------------------------------------
+\subsection{Brecha 3: Privacidad y Eficiencia Energética --- Cloud vs.\ Edge AI}
+% -----------------------------------------------------------
+
+\begin{mdframed}[linecolor=accentpurple,linewidth=1pt,backgroundcolor=violet!3]
+\textbf{Hallazgo:} La gran mayoría de los sistemas IoT con IA del estado del arte envían
+datos continuamente a servidores externos (Cloud Computing) para ejecutar sus modelos.
+Esto genera: (a)~alta latencia en la respuesta ante una fuga; (b)~dependencia de
+conectividad permanente a internet; (c)~vulnerabilidades de privacidad al transmitir
+audio del interior de un hogar a servidores de terceros; y (d)~consumo excesivo de ancho
+de banda.
+\end{mdframed}
+
+\vspace{0.6em}
+
+\subsubsection{Evidencia en los referentes}
+
+Islam \textit{et al.} (2023) y Corado (2025) son representativos del paradigma
+\textit{Cloud-first}: sus modelos de ML son ejecutados en servidores externos, lo que
+implica que si el router falla, el sistema de detección queda ciego. De Lima Rosado
+(2025) aborda específicamente las vulnerabilidades de seguridad que esta arquitectura
+introduce, evidenciando que la transmisión continua de datos sensoriales desde el hogar
+representa un vector de ataque. Bruno \textit{et al.} (2021) proponen un
+\textit{datalogger} en tarjeta SD ---un sistema completamente desconectado que analiza
+los datos de forma diferida---, evidenciando el extremo opuesto del problema: sin
+inteligencia en tiempo real.
+
+\subsubsection{Referentes que NO resuelven esta brecha}
+
+\begin{itemize}[nosep]
+  \item Referentes 3 y 9 (Islam 2023; Corado): IA exclusivamente en la nube.
+  \item Referentes 7 y 8 (Rubiños; Farah): Alta capacidad de cómputo en servidor requerida.
+  \item Referente 2 (De Lima Rosado): Identifica el problema de privacidad pero no lo soluciona.
+  \item Referente 13 (Bruno): Procesa en diferido (SD card); sin alerta en tiempo real.
+\end{itemize}
+
+\subsubsection{Cómo EdgeLeak AI resuelve esta brecha}
+
+EdgeLeak~AI adopta un paradigma de \textbf{Edge AI} (inteligencia en el borde): el
+modelo TinyML reside y se ejecuta íntegramente dentro del microcontrolador ESP32.
+La arquitectura de datos resultante es la siguiente:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Captura}: Los sensores generan señales crudas localmente.
+  \item \textbf{Inferencia local}: El ESP32 clasifica la señal en tiempo real
+    (\textasciitilde{}ms de latencia) sin enviar audio ni datos crudos al exterior.
+  \item \textbf{Transmisión mínima}: Solo el \textit{estado de alerta} (un mensaje JSON
+    liviano) viaja por WiFi hacia la API de la aplicación Flutter.
+  \item \textbf{Visualización}: La app móvil presenta el estado y el historial al usuario.
+\end{enumerate}
+
+Esta arquitectura garantiza: \textbf{baja latencia} (la inferencia no depende de la red),
+\textbf{privacidad total} (el audio del hogar nunca abandona el dispositivo), y
+\textbf{resiliencia} (funciona aunque el router pierda conectividad a internet).
+
+\newpage
+
+% ====================================================================
+\section{Justificación Técnica Integral de EdgeLeak AI}
+% ====================================================================
+
+La siguiente tabla sintetiza, para cada uno de los 13~referentes, la razón específica
+por la que su arquitectura no da respuesta al problema de las microfugas domésticas en
+el punto de instalación bajo el lavaplatos, y el mecanismo concreto de EdgeLeak~AI que
+cierra esa brecha.
+
+\begin{longtable}{>{\small}p{0.4cm} >{\small}p{3.4cm} >{\small}p{5.0cm} >{\small}p{5.2cm}}
+\caption{Justificación técnica: brecha por referente y respuesta de EdgeLeak AI} \label{tab:justificacion} \\
+\toprule
+\textbf{\#} & \textbf{Referente} & \textbf{Por qué NO resuelve el problema} & \textbf{Respuesta de EdgeLeak AI} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{c}{\small\textit{(continúa en la siguiente página)}} \\
+\toprule
+\textbf{\#} & \textbf{Referente} & \textbf{Por qué NO resuelve el problema} & \textbf{Respuesta de EdgeLeak AI} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+1 & Anónimo (s.f.) & Sistema binario y reactivo: solo alerta cuando el agua ya está estancada. No detecta microfugas ocultas. & TinyML analiza la vibración del tubo antes de que el agua sea visible; paradigma predictivo, no reactivo. \\[0.4em]
+2 & De Lima Rosado (2025) & Enfoque estrictamente de ciberseguridad; sin innovación en detección física o procesamiento en el borde. & Edge AI garantiza privacidad al mantener el audio del hogar dentro del dispositivo; sin transmisión de datos crudos. \\[0.4em]
+3 & Islam \textit{et al.} (2023) & Dependencia de la nube para ejecutar IA; latencia alta e inoperatividad sin internet continuo. & Inferencia TinyML local en ESP32: latencia de milisegundos y funcionalidad offline. \\[0.4em]
+4 & Kang \textit{et al.} (2023) & Validado en entornos industriales controlados; genera falsos positivos ante el ruido doméstico. & Sensor Fusion (flujo + vibración) proporciona contexto que discrimina uso normal de fuga real. \\[0.4em]
+5 & Edge Impulse (2023-2024) & Herramienta genérica para vibración de motores; no calibrada para la dinámica física del goteo en tuberías domésticas. & Modelo TinyML entrenado específicamente con firmas acústicas de microfugas en tubería de lavaplatos. \\[0.4em]
+6 & Escobar \& López (2016) & Sensor YF-S201 solo detecta caudales $>$1~L/min; insensible a micro-goteos de 0.1--0.5~L/min. & El sensor de flujo se complementa con el sensor acústico; el micro-goteo es detectado por la firma vibratoria, no por la turbina. \\[0.4em]
+7 & Rubiños \textit{et al.} (2023) & Escala macro (acueductos urbanos); requiere servidores de alto cómputo incompatibles con domótica. & Miniaturización de la IA mediante TinyML: mismo principio de redes neuronales en un ESP32 de \$5~USD. \\[0.4em]
+8 & Farah \& Shahrour (2024) & Foco en redes macro de empresas de servicios públicos; vacío total en el ecosistema Smart Home. & Primer nodo doméstico que aplica análisis acústico con IA al punto de falla más común en el hogar (el latiguillo). \\[0.4em]
+9 & Corado (2025) & Solución para infraestructura pública con servidores externos; sin Edge Computing ni aplicación residencial. & Arquitectura Edge-first: toda la inteligencia vive en el dispositivo; la nube solo recibe el estado de alerta. \\[0.4em]
+10 & Islam \textit{et al.} (2022) & Tuberías subterráneas y grandes caudales; sin mecanismo para filtrar interferencias de una cocina residencial. & Sensor Fusion como filtro de contexto: el sensor de flujo invalida la alarma acústica cuando el grifo está abierto. \\[0.4em]
+11 & Sagat (s.f.) & Sensor pasivo (requiere que el agua moje los pines); sin IA, sin análisis de señal preventivo. & Micrófono MEMS/disco piezoeléctrico activo: escucha la tubería en tiempo real sin necesidad de contacto con el agua. \\[0.4em]
+12 & Dixit \textit{et al.} (2017) & Depende de caída abrupta de presión, método ineficaz para micro-goteos donde la presión casi no varía. & La firma acústica de la turbulencia del goteo es independiente de la presión de red; detecta el fenómeno físico real. \\[0.4em]
+13 & Bruno \textit{et al.} (2021) & Sistema de registro diferido (SD card); sin alerta en tiempo real ni inteligencia local. & El ESP32 reemplaza la tarjeta SD por un modelo TinyML que procesa la señal instantáneamente y notifica al móvil en tiempo real. \\
+\end{longtable}
+
+\begin{mdframed}[linecolor=normalgreen,linewidth=1.5pt,backgroundcolor=green!3]
+\textbf{Síntesis:} EdgeLeak~AI es el único sistema, entre todos los referentes analizados,
+que combina simultáneamente: (1)~\textbf{Prevención activa} mediante análisis de firma
+acústica, (2)~\textbf{Sensor Fusion} para eliminar falsos positivos en el contexto
+doméstico, y (3)~\textbf{Edge AI} para garantizar privacidad, baja latencia y resiliencia
+ante cortes de internet. Esta combinación lo posiciona como una solución inédita en el
+nicho de las microfugas en instalaciones domésticas bajo el fregadero.
+\end{mdframed}
+
+\newpage
+
+% ====================================================================
+\section{Glosario de Términos Técnicos}
+% ====================================================================
+
+El presente glosario reúne los términos especializados empleados a lo largo de la
+documentación técnica y el informe ejecutivo de EdgeLeak~AI, organizados alfabéticamente
+para facilitar su consulta.
+
+\begin{longtable}{>{\bfseries}p{3.8cm} p{10.5cm}}
+\caption{Glosario de términos técnicos -- EdgeLeak AI} \label{tab:glosario} \\
+\toprule
+\textbf{Término} & \textbf{Definición} \\
+\midrule
+\endfirsthead
+\multicolumn{2}{c}{\small\textit{(continúa en la siguiente página)}} \\
+\toprule
+\textbf{Término} & \textbf{Definición} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+
+ADC (Analog-to-Digital Converter) & Conversor analógico-digital. Circuito que transforma
+una señal eléctrica continua (analógica) en un valor numérico discreto procesable por un
+microcontrolador. En el proyecto se evalúa el módulo externo ADS1115 (16 bits) para
+superar la imprecisión del ADC interno del ESP32 al medir vibraciones milimétricas.
+\\[0.5em]
+
+Anomaly Detection & Detección de anomalías. Técnica de Machine Learning no supervisado
+que identifica patrones que se desvían significativamente de la línea base establecida.
+Edge Impulse la implementa como bloque de aprendizaje en la pipeline de TinyML para
+detectar la firma acústica del goteo como una anomalía frente al reposo del tubo.
+\\[0.5em]
+
+API (Application Programming Interface) & Interfaz de Programación de Aplicaciones.
+Conjunto de protocolos y definiciones que permiten la comunicación entre sistemas de
+software. En EdgeLeak~AI, la API de Groq expone el modelo LLM para el análisis de
+patrones desde la aplicación Flutter.
+\\[0.5em]
+
+Arduino & Plataforma de hardware y software de código abierto basada en microcontroladores
+AVR/ARM. Referenciada en múltiples trabajos del estado del arte (Anónimo, s.f.; Escobar
+\& López, 2016; Bruno \textit{et al.}, 2021) como base de prototipos IoT de bajo costo.
+\\[0.5em]
+
+Async/Await & Modelo de programación asíncrona del lenguaje Dart (y otros lenguajes
+modernos) que permite ejecutar operaciones no bloqueantes (llamadas de red, acceso a
+BD) sin congelar la interfaz de usuario. Fundamental en la arquitectura de los
+controllers de EdgeLeak~AI.
+\\[0.5em]
+
+ChangeNotifier & Clase del framework Flutter que implementa el patrón Observer. Los
+controladores de EdgeLeak~AI la extienden para notificar reactivamente a los widgets
+cuando el estado cambia (nueva lectura del sensor, nueva alerta, cambio de sesión).
+\\[0.5em]
+
+Cloud Computing & Paradigma de computación en el que el procesamiento y almacenamiento
+de datos ocurre en servidores remotos accesibles por internet. Contraposición al modelo
+Edge Computing. La mayoría de los referentes del estado del arte (Islam, 2023; Corado,
+2025) dependen de este paradigma para ejecutar sus modelos de IA.
+\\[0.5em]
+
+CRUD & Acrónimo de las cuatro operaciones básicas sobre datos persistentes:
+\textbf{C}reate (Crear), \textbf{R}ead (Leer), \textbf{U}pdate (Actualizar),
+\textbf{D}elete (Eliminar). El módulo de administración de EdgeLeak~AI implementa
+CRUD completo sobre la entidad \texttt{UsuarioModel}.
+\\[0.5em]
+
+Dart & Lenguaje de programación de tipado estático y fuerte desarrollado por Google.
+Es el lenguaje base del framework Flutter. Soporta null-safety, programación orientada
+a objetos y paradigmas asíncronos mediante async/await.
+\\[0.5em]
+
+Datalogging & Registro diferido de datos sensoriales en un medio de almacenamiento local
+(típicamente tarjeta SD o memoria Flash) para su análisis posterior. Representado en el
+estado del arte por Bruno \textit{et al.} (2021). EdgeLeak~AI supera este paradigma
+mediante inferencia TinyML en tiempo real.
+\\[0.5em]
+
+Edge AI & Inteligencia Artificial desplegada directamente en el dispositivo de campo
+(el \textit{``borde''} de la red), sin dependencia de servidores remotos para la
+inferencia. Permite baja latencia, privacidad de datos y funcionamiento offline.
+Principio arquitectónico central de EdgeLeak~AI.
+\\[0.5em]
+
+Edge Computing & Paradigma de computación distribuida en el que el procesamiento de datos
+se realiza en el propio dispositivo o en nodos cercanos a la fuente de datos, en lugar
+de en la nube central. Contrastado con Cloud Computing en los referentes 3, 7 y 9 del
+estado del arte.
+\\[0.5em]
+
+Edge Impulse & Plataforma de desarrollo de TinyML (desarrollada por Edge Impulse Inc.)
+que provee un entorno integrado para recolección de datos, entrenamiento de modelos de
+IA y generación de firmware optimizado para microcontroladores como el ESP32. Utilizada
+como referente técnico (referente~5) y como herramienta metodológica del proyecto.
+\\[0.5em]
+
+ESP32 & Microcontrolador de doble núcleo (Xtensa LX6/LX7) con WiFi y Bluetooth
+integrados, fabricado por Espressif Systems. Es el \textit{``cerebro''} del hardware
+de EdgeLeak~AI. Su variante DEVKIT V1 (WROOM-32) cuesta aproximadamente \$4--6~USD y
+es 100\% compatible con Edge Impulse para el despliegue de modelos TinyML.
+\\[0.5em]
+
+ESP8266 & Predecesor del ESP32; microcontrolador con WiFi integrado de un solo núcleo.
+Empleado en el referente~11 (Sagat, s.f.) como base del sistema de notificaciones Push
+de bajo costo. El ESP32 lo supera en capacidad de cómputo y soporte para IA.
+\\[0.5em]
+
+Efecto Hall & Principio físico por el cual un conductor que transporta corriente eléctrica
+en presencia de un campo magnético perpendicular genera un voltaje transversal medible.
+Los sensores de flujo YF-S201/YF-B1 utilizan este efecto para contar las rotaciones de
+una turbina y calcular el caudal de agua en litros por minuto.
+\\[0.5em]
+
+Falso Positivo & En clasificación de Machine Learning, evento en el que el sistema predice
+la clase positiva (ej.\ ``fuga detectada'') cuando la realidad es negativa (ej.\ uso
+normal del grifo). La Brecha~2 del estado del arte identifica la ausencia de Sensor
+Fusion como causa principal de falsos positivos en sistemas de detección acústica
+doméstica.
+\\[0.5em]
+
+Firma Acústica & Patrón característico de una señal de audio o vibración que permite
+identificar la fuente que la generó. Cada tipo de fuga (goteo lento, presurizado, sifón)
+genera una firma acústica única en la tubería. El modelo TinyML de EdgeLeak~AI aprende
+a reconocer estas firmas durante la fase de entrenamiento.
+\\[0.5em]
+
+Flutter & Framework de desarrollo de aplicaciones móviles, web y de escritorio de código
+abierto, desarrollado por Google. Utiliza el lenguaje Dart y proporciona un motor de
+renderizado propio (Skia/Impeller). Es el framework de la capa de presentación (Vista)
+de EdgeLeak~AI.
+\\[0.5em]
+
+Golpe de Ariete & Fenómeno hidráulico que ocurre cuando el flujo de un fluido en una
+tubería se detiene o cambia bruscamente de dirección (al cerrar rápidamente una válvula
+o grifo), generando una onda de presión que puede dañar acoples y empaques con el tiempo.
+Es uno de los mecanismos de desgaste que origina las microfugas que detecta EdgeLeak~AI.
+\\[0.5em]
+
+Groq API & Interfaz de programación de aplicaciones del proveedor de infraestructura de
+IA Groq, que permite invocar modelos de lenguaje de gran escala (LLM) de alta velocidad
+a través de llamadas REST. EdgeLeak~AI utiliza el modelo \texttt{Llama-3.3-70B-Versatile}
+a través de esta API para el análisis avanzado de patrones en la fase sin hardware físico.
+\\[0.5em]
+
+I2S (Inter-IC Sound) & Protocolo de comunicación serie sincrónico estándar para
+transmisión de datos de audio digital entre circuitos integrados. El micrófono MEMS
+INMP441 utiliza I2S para comunicarse con el ESP32, entregando señales de audio digitales
+de alta calidad sin el ruido inherente a los conversores ADC analógicos.
+\\[0.5em]
+
+INMP441 & Módulo de micrófono MEMS (Micro-Electro-Mechanical Systems) omnidireccional
+con interfaz digital I2S. Opción de sensor acústico recomendada para el hardware de
+EdgeLeak~AI por su alta fidelidad de señal y compatibilidad directa con el ESP32 para
+captura de datos de entrenamiento TinyML.
+\\[0.5em]
+
+Inferencia (TinyML) & Proceso mediante el cual un modelo de Machine Learning ya entrenado
+analiza datos nuevos y produce una predicción o clasificación. En el contexto de TinyML,
+la inferencia ocurre directamente en el microcontrolador (ESP32) sin necesidad de enviar
+los datos a la nube.
+\\[0.5em]
+
+IoT (Internet of Things) & Internet de las Cosas. Paradigma tecnológico que conecta
+dispositivos físicos del mundo real (sensores, actuadores, electrodomésticos) a internet
+para recopilar datos y automatizar acciones. EdgeLeak~AI es un nodo IoT de Smart Home.
+\\[0.5em]
+
+IP65 / IP67 & Clasificaciones del estándar internacional IEC 60529 que describen el
+grado de protección de una carcasa contra partículas sólidas y líquidos. IP65 garantiza
+protección total contra polvo y resistencia a chorros de agua; IP67 añade resistencia a
+inmersión temporal. Requisito para la caja electrónica del hardware de EdgeLeak~AI dado
+el entorno de humedad bajo el lavaplatos.
+\\[0.5em]
+
+JSON (JavaScript Object Notation) & Formato ligero de intercambio de datos basado en
+texto, legible por humanos y de fácil parseo por máquinas. Utilizado en EdgeLeak~AI para
+la serialización/deserialización de modelos de datos y para los mensajes de estado
+transmitidos por WiFi entre el ESP32 y la aplicación Flutter.
+\\[0.5em]
+
+Latiguillo & Manguera flexible de conexión hidráulica, generalmente de acero inoxidable
+trenzado con terminales roscados, usada para conectar la tubería de agua fría a la
+llave del fregadero. Es el componente de mayor frecuencia de fallo en la instalación
+bajo el lavaplatos y el punto de instalación primario del sensor de EdgeLeak~AI.
+\\[0.5em]
+
+LLM (Large Language Model) & Modelo de Lenguaje de Gran Escala. Tipo de modelo de
+Inteligencia Artificial entrenado sobre enormes corpus de texto que puede comprender y
+generar lenguaje natural, razonar y analizar datos. EdgeLeak~AI utiliza
+\texttt{Llama-3.3-70B-Versatile} (vía API Groq) como motor de análisis de patrones
+en ausencia de hardware físico.
+\\[0.5em]
+
+Machine Learning (ML) & Subcampo de la Inteligencia Artificial que desarrolla algoritmos
+capaces de aprender patrones a partir de datos y mejorar su rendimiento con la
+experiencia, sin ser explícitamente programados para cada caso. Incluye técnicas
+supervisadas (SVM, Random Forest) y no supervisadas (detección de anomalías).
+\\[0.5em]
+
+MEMS (Micro-Electro-Mechanical Systems) & Sistemas microelectromecánicos. Tecnología de
+fabricación que integra componentes mecánicos, sensores y electrónica en chips de silicio
+de escala micrométrica. Los micrófonos MEMS (como el INMP441) ofrecen alta calidad de
+señal en formatos miniaturizados, ideales para dispositivos IoT.
+\\[0.5em]
+
+Microfuga & Fuga de agua de caudal muy bajo (rango de 0.1 a 1.0~L/min) generada por el
+desgaste progresivo de empaques, roscas o acoples. Por su bajo caudal, no es registrada
+por los medidores de agua convencionales (zona muerta mecánica) y no genera charcos
+visibles hasta semanas después de su inicio. Es el tipo de fallo objetivo de EdgeLeak~AI.
+\\[0.5em]
+
+MVC (Model-View-Controller) & Patrón arquitectónico de software que separa la aplicación
+en tres capas: \textbf{Modelo} (datos y lógica de negocio), \textbf{Vista} (presentación)
+y \textbf{Controlador} (mediación entre modelo y vista). EdgeLeak~AI implementa MVC
+adaptado a las convenciones reactivas de Flutter mediante \texttt{ChangeNotifier}.
+\\[0.5em]
+
+Null-Safety & Característica del lenguaje Dart que garantiza en tiempo de compilación
+que ninguna variable puede contener un valor nulo salvo que sea declarada explícitamente
+como nullable (\texttt{?}). Previene una categoría entera de errores de ejecución
+(NullPointerException).
+\\[0.5em]
+
+Piezoeléctrico & Material o componente que genera una tensión eléctrica cuando se le
+aplica una deformación mecánica (presión, vibración), y viceversa. Los discos
+piezoeléctricos son la opción de sensor de vibración de menor costo (\textless{}\$1~USD)
+para capturar la firma acústica del goteo en la tubería del lavaplatos.
+\\[0.5em]
+
+Random Forest & Algoritmo de Machine Learning supervisado que construye un conjunto
+(\textit{ensemble}) de árboles de decisión y combina sus predicciones para mejorar la
+precisión y evitar el sobreajuste. Citado por Islam \textit{et al.} (2023) como uno de
+los algoritmos de ML clásico aplicados a la detección de fugas.
+\\[0.5em]
+
+Red Neuronal & Modelo matemático de Machine Learning compuesto por capas de nodos
+(neuronas artificiales) interconectadas con pesos ajustables. Las redes neuronales
+convolucionales (CNN) y densas son los tipos utilizados por Edge Impulse para clasificar
+señales de audio/vibración en modelos TinyML.
+\\[0.5em]
+
+Sensor Fusion & Fusión de sensores. Técnica que combina datos de múltiples sensores
+heterogéneos para producir información más precisa y contextual que la que puede proveer
+cada sensor individualmente. EdgeLeak~AI aplica Sensor Fusion cruzando la señal acústica
+con la señal de flujo para eliminar falsos positivos.
+\\[0.5em]
+
+Sifón & Componente del desagüe del fregadero con forma de ``U'' o ``S'' que retiene agua
+para impedir la entrada de gases malolientes del alcantarillado. Es un segundo punto de
+posible fuga en la instalación bajo el lavaplatos.
+\\[0.5em]
+
+Smart City & Ciudad Inteligente. Concepto urbano que integra tecnologías IoT y análisis
+de datos a gran escala para optimizar servicios públicos (agua, energía, transporte).
+La mayoría de las soluciones de detección de fugas con IA del estado del arte pertenecen
+a este ecosistema macro, inaccesible para el usuario residencial.
+\\[0.5em]
+
+Smart Home & Hogar Inteligente. Ecosistema doméstico en el que dispositivos y sensores
+están interconectados para automatizar, monitorear y mejorar la eficiencia y seguridad
+del hogar. EdgeLeak~AI es un nodo Smart Home de bajo costo para el nicho de las
+microfugas domésticas.
+\\[0.5em]
+
+SMTP (Simple Mail Transfer Protocol) & Protocolo estándar de internet para el envío de
+correo electrónico. EdgeLeak~AI utiliza Google Workspace SMTP (con SSL/TLS) a través del
+servicio \texttt{EmailService} para enviar notificaciones y correos de recuperación de
+contraseña.
+\\[0.5em]
+
+SQLite & Motor de base de datos relacional integrado, ligero y sin servidor. EdgeLeak~AI
+lo utiliza para la persistencia local de datos en dispositivos Android/iOS mediante el
+paquete \texttt{sqflite}, almacenando usuarios, alertas y lecturas de sensores en el
+archivo \texttt{edgeleak\_v3.db}.
+\\[0.5em]
+
+SSL/TLS (Secure Sockets Layer / Transport Layer Security) & Protocolos criptográficos
+que garantizan la confidencialidad, integridad y autenticidad de las comunicaciones en
+redes de computadores. Utilizados en EdgeLeak~AI para asegurar la comunicación SMTP de
+correo y las llamadas a la API de Groq.
+\\[0.5em]
+
+SVM (Support Vector Machine) & Máquina de Vectores de Soporte. Algoritmo de Machine
+Learning supervisado que encuentra el hiperplano de máximo margen que separa las clases
+en el espacio de características. Citado por Rubiños \textit{et al.} (2023) e Islam
+\textit{et al.} (2023) como técnica clásica aplicada a la clasificación de patrones de
+fugas.
+\\[0.5em]
+
+TDD (Test-Driven Development) & Desarrollo Guiado por Pruebas. Metodología de desarrollo
+de software en la que se escriben primero las pruebas unitarias (que fallan), luego el
+código mínimo necesario para que pasen y, finalmente, se refactoriza. EdgeLeak~AI adopta
+TDD mediante el framework \texttt{flutter\_test}.
+\\[0.5em]
+
+TinyML & Subconjunto de Machine Learning orientado a ejecutar modelos de inferencia en
+dispositivos de baja potencia y recursos limitados (microcontroladores, sensores
+embebidos). Es la tecnología núcleo del hardware de EdgeLeak~AI, permitiendo ejecutar
+la clasificación de firmas acústicas directamente en el ESP32.
+\\[0.5em]
+
+Turbulencia (fluidos) & Régimen de flujo de fluidos caracterizado por variaciones
+caóticas de velocidad y presión (en contraposición al flujo laminar). Una microfuga
+en un acople genera turbulencia localizada que produce ondas de vibración de alta
+frecuencia detectables por el sensor acústico de EdgeLeak~AI antes de que el agua
+sea visible.
+\\[0.5em]
+
+WSN (Wireless Sensor Network) & Red Inalámbrica de Sensores. Conjunto de nodos
+distribuidos espacialmente que monitorean condiciones físicas y comunican los datos
+de forma inalámbrica. Citado por Islam \textit{et al.} (2022) como topología de red
+para monitoreo de tuberías subterráneas.
+\\[0.5em]
+
+WiFi (IEEE 802.11) & Estándar de comunicación inalámbrica de área local de alta
+velocidad. Es el protocolo de comunicación utilizado por el ESP32 de EdgeLeak~AI para
+transmitir el estado de alerta desde el nodo hardware hacia la aplicación Flutter a
+través de la red doméstica.
+\\[0.5em]
+
+YF-S201 / YF-B1 & Sensores de flujo de agua de efecto Hall de bajo costo (plástico y
+latón, respectivamente) con roscas de 1/2~pulgada. Miden el caudal en L/min mediante el
+conteo de pulsos generados por una turbina interna. En EdgeLeak~AI actúan como
+\textit{interruptores de contexto} para la estrategia de Sensor Fusion.
+\\[0.5em]
+
+Zona Muerta Mecánica & Rango de caudal por debajo del cual los medidores de agua
+convencionales (tipo Woltmann o mecánicos) no registran flujo porque la turbina interna
+no tiene energía suficiente para girar. Típicamente se sitúa en valores menores a
+0.5~L/min, lo que hace que las microfugas sean invisibles para la facturación del
+servicio público y para el usuario.
+\\
+
+\end{longtable}
+
+% ====================================================================
+\section*{Referencias Bibliográficas}
+\addcontentsline{toc}{section}{Referencias Bibliográficas}
+% ====================================================================
+
+\begin{enumerate}[label={[\arabic*]}, leftmargin=*, nosep, itemsep=0.4em]
+
+\item Anónimo (s.f.). \textit{Prototipo de un sistema o red de sensores para la detección
+de fugas de agua de uso doméstico utilizando un microcontrolador arduino}. [Trabajo
+académico / prototipo].
+
+\item Bruno, F., De Marchis, M., Milici, B., Saccone, D., \& Traina, F. (2021).
+A Pressure Monitoring System for Water Distribution Networks Based on Arduino
+Microcontroller. \textit{Water, 13}(17), 2321.
+\url{https://doi.org/10.3390/w13172321}
+
+\item Corado Pérez, L. (2025). \textit{Detección y prevención de fugas en tuberías e
+infraestructuras de agua} [Trabajo Fin de Máster, Universitat Oberta de Catalunya].
+Repositorio Institucional UOC.
+
+\item De Lima Rosado, E. O. (2025). \textit{Fortalecimiento de la seguridad en el
+internet de las cosas (IoT): estrategias y propuestas para mitigar riesgos de
+vulnerabilidad en sensores de agua con tecnología IoT} [Tesis de Especialización,
+Universidad Nacional Abierta y a Distancia -- UNAD]. Repositorio Institucional UNAD.
+
+\item Dixit, R., Chaudhari, H., Jadhav, S., \& Jagtap, K. (2017). Water Level and
+Leakage Detection System with its Quality Analysis based on Sensor for Home Application.
+\textit{International Research Journal of Engineering and Technology (IRJET), 4}(11).
+
+\item Edge Impulse. (2023). \textit{Anomaly Detection Guide}. Documentación técnica
+oficial. \url{https://docs.edgeimpulse.com/docs/edge-impulse-studio/learning-blocks/anomaly-detection}
+
+\item Escobar Sánchez, J. A., \& López Hernández, F. (2016). \textit{Detección de fugas
+en una red de distribución de agua potable} [Trabajo de Residencia Profesional,
+Instituto Tecnológico de Tuxtla Gutiérrez]. Tecnológico Nacional de México.
+
+\item Farah, E., \& Shahrour, I. (2024). Water Leak Detection: A Comprehensive Review of
+Methods, Challenges, and Future Directions. \textit{Water, 16}(21), 2975.
+\url{https://doi.org/10.3390/w16212975}
+
+\item Islam, M. R., Azam, S., Shanmugam, B., \& Mathur, D. (2022). A Review on Current
+Technologies and Future Direction of Water Leakage Detection in Water Distribution
+Network. \textit{IEEE Access, 10}, 107177--107201.
+\url{https://doi.org/10.1109/ACCESS.2022.3212769}
+
+\item Islam, M. R., et al. (2023). An Intelligent IoT and ML-Based Water Leakage
+Detection System. \textit{IEEE Access, 11}, 10305165.
+\url{https://ieeexplore.ieee.org/document/10305165}
+
+\item Kang, J., et al. (2023). Machine Learning Model for Leak Detection Using Water
+Pipeline Vibration Sensor. \textit{Sensors, 23}(21), 8935.
+\url{https://doi.org/10.3390/s23218935}
+
+\item Rubiños Jiménez, S. L., Cuzcano Rivas, A. B., Tejada Cabanillas, A. A., Mendoza
+Apaza, F., Leva Apaza, A., \& Apesteguia Infantes, J. A. (2023). \textit{Los sistemas de
+abastecimiento de agua potable: prevención y detección temprana de fugas}. Centro de
+Investigación y Desarrollo Ecuador (CIDE).
+\url{https://doi.org/10.33936/978-9942-636-36-2}
+
+\item Sagat, P. (s.f.). \textit{ESP8266 Nodemcu Leak Sensor with SMS functionality}
+[Repositorio de código fuente]. GitHub.
+\url{https://github.com/psagat/ESP8266-Leak-Sensor}
+
+\end{enumerate}
+
+\end{document}

@@ -10,8 +10,9 @@ class AuthController extends ChangeNotifier {
   
   bool isLoading = false;
   String errorMessage = '';
-  UsuarioModel? usuarioActual; // Mantiene la sesión
+  UsuarioModel? usuarioActual; 
 
+  // --- VALIDACIONES ORIGINALES ---
   bool hasMinLength = false;
   bool hasUppercase = false;
   bool hasNumber = false;
@@ -61,6 +62,8 @@ class AuthController extends ChangeNotifier {
     return finalPass;
   }
 
+  // --- LÓGICA DE SESIÓN Y REGISTRO ---
+
   Future<UsuarioModel?> login(String correo, String password) async {
     isLoading = true;
     errorMessage = '';
@@ -70,7 +73,7 @@ class AuthController extends ChangeNotifier {
     if (usuario == null) {
       errorMessage = 'Correo o contraseña incorrectos';
     } else {
-      usuarioActual = usuario; // Guardamos la sesión
+      usuarioActual = usuario; 
     }
 
     isLoading = false;
@@ -78,14 +81,30 @@ class AuthController extends ChangeNotifier {
     return usuario;
   }
 
-  Future<bool> register(String nombre, String correo, String password) async {
+  Future<bool> register(
+    String primerNombre,
+    String segundoNombre,
+    String primerApellido,
+    String segundoApellido,
+    String correo,
+    String password, {
+    String rol = 'operador',
+  }) async {
     if (!isPasswordValid) return false;
 
     isLoading = true;
     errorMessage = '';
     notifyListeners();
 
-    final nuevoUsuario = UsuarioModel(nombre: nombre, correo: correo, password: password);
+    final nuevoUsuario = UsuarioModel(
+      primerNombre: primerNombre,
+      segundoNombre: segundoNombre,
+      primerApellido: primerApellido,
+      segundoApellido: segundoApellido,
+      correo: correo,
+      password: password,
+      rol: rol,
+    );
     final exito = await _dbService.registrarUsuario(nuevoUsuario);
 
     if (!exito) errorMessage = 'El correo ya está registrado';
@@ -95,14 +114,14 @@ class AuthController extends ChangeNotifier {
     return exito;
   }
 
-  // 📧 NUEVO: Lógica de Recuperación de Contraseña
+  // --- RECUPERACIÓN Y CAMBIO OBLIGATORIO ---
+
   Future<bool> enviarCorreoRecuperacion(String correo) async {
     isLoading = true;
     errorMessage = '';
     notifyListeners();
 
     final usuario = await _dbService.obtenerUsuarioPorCorreo(correo);
-    
     if (usuario == null) {
       errorMessage = 'No hay ninguna cuenta asociada a este correo.';
       isLoading = false;
@@ -111,11 +130,7 @@ class AuthController extends ChangeNotifier {
     }
 
     String tempPass = generarContrasenaSegura();
-    
-    // 1. Guardar en Base de Datos (Marcando como temporal = true)
     await _dbService.actualizarPassword(usuario.id!, tempPass, true);
-
-    // 2. Enviar Correo
     final correoEnviado = await _emailService.enviarCorreoRecuperacion(correo, tempPass);
 
     if (!correoEnviado) {
@@ -127,27 +142,60 @@ class AuthController extends ChangeNotifier {
     return correoEnviado;
   }
 
-  // 🔐 NUEVO: Lógica para el Cambio Obligatorio
   Future<bool> cambiarPasswordObligatorio(String nuevaPassword) async {
     if (!isPasswordValid || usuarioActual == null) return false;
 
     isLoading = true;
     notifyListeners();
 
-    // Actualizamos en BD (Marcando temporal = false)
     await _dbService.actualizarPassword(usuarioActual!.id!, nuevaPassword, false);
-    
-    // Actualizamos la sesión en memoria
-    usuarioActual = UsuarioModel(
-      id: usuarioActual!.id,
-      nombre: usuarioActual!.nombre,
-      correo: usuarioActual!.correo,
-      password: nuevaPassword,
-      esTemporal: 0,
-    );
+
+    // Limpiar la sesión: el usuario debe autenticarse de nuevo con la nueva contraseña
+    usuarioActual = null;
 
     isLoading = false;
     notifyListeners();
     return true;
+  }
+
+  // ✨ NUEVOS MÉTODOS PARA EL CRUD (Requerimiento Daniel)
+  
+  List<UsuarioModel> _listaUsuarios = [];
+  List<UsuarioModel> get listaUsuarios => _listaUsuarios;
+
+  Future<void> obtenerTodosLosUsuarios() async {
+    isLoading = true;
+    notifyListeners();
+    _listaUsuarios = await _dbService.obtenerTodosLosUsuarios();
+    isLoading = false;
+    notifyListeners();
+  }
+
+  Future<bool> eliminarUsuario(int id) async {
+    errorMessage = '';
+    // Seguridad básica: No permitir que el usuario logueado se borre a sí mismo
+    if (usuarioActual?.id == id) {
+      errorMessage = 'No puedes eliminar tu propia cuenta.';
+      notifyListeners();
+      return false;
+    }
+
+    final filasAfectadas = await _dbService.eliminarUsuario(id);
+    if (filasAfectadas > 0) {
+      await obtenerTodosLosUsuarios(); // Refrescar lista automáticamente
+      return true;
+    }
+    errorMessage = 'No se pudo eliminar el usuario. Es posible que ya no exista.';
+    notifyListeners();
+    return false;
+  }
+
+  Future<bool> actualizarDatosUsuario(UsuarioModel usuario) async {
+    final filasAfectadas = await _dbService.actualizarUsuario(usuario);
+    if (filasAfectadas > 0) {
+      await obtenerTodosLosUsuarios();
+      return true;
+    }
+    return false;
   }
 }
