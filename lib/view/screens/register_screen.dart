@@ -24,7 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _ocultarPass = true;
   String _correoError = '';
 
-  static const _emailRegex = RegExp(
+  static final _emailRegex = RegExp(
     r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$',
   );
 
