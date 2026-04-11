@@ -365,6 +365,13 @@ microcontrolador. En el proyecto se evalúa el módulo externo ADS1115 (16 bits)
 superar la imprecisión del ADC interno del ESP32 al medir vibraciones milimétricas.
 \\[0.5em]
 
+API Key & Clave de acceso a una interfaz de programación. Cadena de texto secreta que
+actúa como credencial para autenticar solicitudes a un endpoint protegido. En EdgeLeak~AI
+se utiliza el header HTTP \texttt{x-api-key} con el valor configurado en la variable de
+entorno \texttt{LOCAL\_API\_KEY} para restringir el acceso al endpoint
+\texttt{GET /api/history} a aplicaciones autorizadas.
+\\[0.5em]
+
 Anomaly Detection & Detección de anomalías. Técnica de Machine Learning no supervisado
 que identifica patrones que se desvían significativamente de la línea base establecida.
 Edge Impulse la implementa como bloque de aprendizaje en la pipeline de TinyML para
@@ -388,6 +395,13 @@ BD) sin congelar la interfaz de usuario. Fundamental en la arquitectura de los
 controllers de EdgeLeak~AI.
 \\[0.5em]
 
+Buffer Circular (Rolling Buffer) & Estructura de datos de tamaño fijo que sobrescribe
+los elementos más antiguos cuando se llena. En EdgeLeak~AI, el
+\texttt{DashboardController} mantiene un buffer circular de las \textbf{últimas 10
+lecturas} del ESP32 (ruido, flujo, estado, timestamp) que permite analizar la tendencia
+reciente del sensor sin acumular datos indefinidamente en memoria.
+\\[0.5em]
+
 ChangeNotifier & Clase del framework Flutter que implementa el patrón Observer. Los
 controladores de EdgeLeak~AI la extienden para notificar reactivamente a los widgets
 cuando el estado cambia (nueva lectura del sensor, nueva alerta, cambio de sesión).
@@ -399,10 +413,23 @@ Edge Computing. La mayoría de los referentes del estado del arte (Islam, 2023; 
 2025) dependen de este paradigma para ejecutar sus modelos de IA.
 \\[0.5em]
 
+Cooldown (Rate Limiting) & Período de espera obligatorio entre dos eventos consecutivos
+del mismo tipo. En EdgeLeak~AI, tras cada llamada a la API de Groq se inicia un cooldown
+de \textbf{3 minutos} registrado en \texttt{\_lastGroqEvaluation}. Durante ese período,
+incluso si el estado ``Posible Fuga'' persiste, no se realizan llamadas adicionales,
+protegiendo así la cuota gratuita de la API.
+\\[0.5em]
+
 CRUD & Acrónimo de las cuatro operaciones básicas sobre datos persistentes:
 \textbf{C}reate (Crear), \textbf{R}ead (Leer), \textbf{U}pdate (Actualizar),
 \textbf{D}elete (Eliminar). El módulo de administración de EdgeLeak~AI implementa
 CRUD completo sobre la entidad \texttt{UsuarioModel}.
+\\[0.5em]
+
+dart:io & Biblioteca estándar del lenguaje Dart que provee acceso a operaciones de
+entrada/salida del sistema operativo, incluyendo sockets TCP/UDP, acceso al sistema de
+archivos y, crucialmente para EdgeLeak~AI, la clase \texttt{HttpServer} que permite
+crear un servidor HTTP local sin necesidad de paquetes de terceros.
 \\[0.5em]
 
 Dart & Lenguaje de programación de tipado estático y fuerte desarrollado por Google.
@@ -420,6 +447,12 @@ Edge AI & Inteligencia Artificial desplegada directamente en el dispositivo de c
 (el \textit{``borde''} de la red), sin dependencia de servidores remotos para la
 inferencia. Permite baja latencia, privacidad de datos y funcionamiento offline.
 Principio arquitectónico central de EdgeLeak~AI.
+\\[0.5em]
+
+Endpoint & Punto de acceso de una API REST; corresponde a la combinación de método
+HTTP (\texttt{GET}, \texttt{POST}, etc.) y ruta URL que identifica de forma única una
+operación disponible en el servidor. EdgeLeak~AI expone dos endpoints en el puerto 8080:
+\texttt{POST /api/sensor} y \texttt{GET /api/history}.
 \\[0.5em]
 
 Edge Computing & Paradigma de computación distribuida en el que el procesamiento de datos
@@ -480,6 +513,19 @@ Groq API & Interfaz de programación de aplicaciones del proveedor de infraestru
 IA Groq, que permite invocar modelos de lenguaje de gran escala (LLM) de alta velocidad
 a través de llamadas REST. EdgeLeak~AI utiliza el modelo \texttt{Llama-3.3-70B-Versatile}
 a través de esta API para el análisis avanzado de patrones en la fase sin hardware físico.
+\\[0.5em]
+
+Header HTTP & Metadato enviado en el encabezado de una petición o respuesta HTTP que
+proporciona información adicional sobre la transacción, sin formar parte del cuerpo del
+mensaje. Ejemplos relevantes en EdgeLeak~AI: \texttt{Content-Type: application/json}
+(indica el formato del cuerpo) y \texttt{x-api-key: <clave>} (autenticación del
+endpoint \texttt{GET /api/history}).
+\\[0.5em]
+
+HTTP (HyperText Transfer Protocol) & Protocolo de comunicación sin estado basado en el
+modelo cliente-servidor que define cómo se intercambian mensajes en la web. EdgeLeak~AI
+utiliza HTTP/1.1 tanto para la comunicación interna entre el ESP32 y la app (puerto 8080)
+como para las llamadas externas a la API REST de Groq.
 \\[0.5em]
 
 I2S (Inter-IC Sound) & Protocolo de comunicación serie sincrónico estándar para
@@ -567,6 +613,13 @@ piezoeléctricos son la opción de sensor de vibración de menor costo (\textles
 para capturar la firma acústica del goteo en la tubería del lavaplatos.
 \\[0.5em]
 
+Rate Limiting & Técnica de control de tráfico que restringe el número de operaciones
+o peticiones que un sistema puede realizar dentro de un intervalo de tiempo. En
+EdgeLeak~AI se aplica a las llamadas a la API de Groq: solo se dispara una evaluación
+después de 3 lecturas consecutivas de ``Posible Fuga'' y existe un cooldown de 3 minutos
+entre llamadas sucesivas.
+\\[0.5em]
+
 Random Forest & Algoritmo de Machine Learning supervisado que construye un conjunto
 (\textit{ensemble}) de árboles de decisión y combina sus predicciones para mejorar la
 precisión y evitar el sobreajuste. Citado por Islam \textit{et al.} (2023) como uno de
@@ -577,6 +630,13 @@ Red Neuronal & Modelo matemático de Machine Learning compuesto por capas de nod
 (neuronas artificiales) interconectadas con pesos ajustables. Las redes neuronales
 convolucionales (CNN) y densas son los tipos utilizados por Edge Impulse para clasificar
 señales de audio/vibración en modelos TinyML.
+\\[0.5em]
+
+REST (Representational State Transfer) & Estilo arquitectónico para el diseño de servicios
+web que utiliza los métodos del protocolo HTTP (\texttt{GET}, \texttt{POST},
+\texttt{PUT}, \texttt{DELETE}) para operar sobre recursos identificados por URLs.
+La API local de EdgeLeak~AI (\texttt{LocalApiService}) es una implementación RESTful
+ligera que expone los recursos \texttt{/api/sensor} y \texttt{/api/history}.
 \\[0.5em]
 
 Sensor Fusion & Fusión de sensores. Técnica que combina datos de múltiples sensores
