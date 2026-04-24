@@ -1,0 +1,458 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- PAQUETES NECESARIOS ---
+\usepackage[utf8]{inputenc}
+% Agregada la opción es-noquoting para evitar conflictos con comillas y diagramas
+\usepackage[spanish,es-tabla,es-noquoting]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{array} % Necesario para formatos de columna avanzados
+\usepackage{hyperref}
+\usepackage{helvet}
+\usepackage{xcolor}
+\usepackage{tikz}
+% Agregada la librería 'babel' en TikZ para resolver el colapso de las flechas ->
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, babel}
+\usepackage{listings}
+
+% Configuración de tipografía Sans Serif por defecto
+\renewcommand{\familydefault}{\sfdefault}
+
+% Configuración de colores para enlaces y código
+\definecolor{primary}{RGB}{0, 102, 204}
+\definecolor{codebg}{RGB}{245, 245, 245}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Reporte Técnico - EdgeLeak AI},
+}
+
+% Configuración para el Pseudocódigo PSeInt
+\lstdefinelanguage{PSeInt}{
+    morekeywords={Proceso, FinProceso, Definir, Como, Caracter, Entero, Logico, Escribir, Leer, Si, Entonces, Sino, FinSi, Para, Hasta, Con, Paso, FinPara, Mientras, Hacer, FinMientras, Repetir, Que, Verdadero, Falso, Mod, Longitud, Subcadena, Concatenar},
+    sensitive=false,
+    morecomment=[l]{//},
+    morestring=[b]",
+    morestring=[b]'
+}
+\lstset{
+    language=PSeInt,
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red},
+    commentstyle=\color{green!60!black}\itshape,
+    frame=single,
+    rulecolor=\color{lightgray},
+    breaklines=true,
+    captionpos=b,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    xleftmargin=15pt
+}
+
+\begin{document}
+
+% --- PORTADA ---
+\begin{titlepage}
+    \centering
+    \vspace*{4cm}
+    
+    {\Huge \textbf{Reporte Técnico Completo}\par}
+    \vspace{1cm}
+    {\Huge \textbf{EdgeLeak AI}\par}
+    \vspace{0.5cm}
+    {\Large Sistema Inteligente de Detección de Microfugas de Agua\par}
+    
+    \vspace{4cm}
+    
+    {\Large \textbf{Integrantes:}\par}
+    \vspace{0.5cm}
+    {\large Daniel Restrepo Galeano \par}
+    {\large Oscar Mauricio \par}
+    {\large Brayan \par}
+    
+    \vfill
+    
+    {\large Corporación Universitaria Remington \par}
+    {\large Medellín, Colombia \par}
+    {\large \today \par}
+\end{titlepage}
+
+\newpage
+% --- ÍNDICES ---
+\tableofcontents
+\newpage
+\listoftables
+\newpage
+\listoffigures
+\newpage
+
+% ==========================================
+% 1. MARCO TECNOLÓGICO Y VISIÓN GENERAL
+% ==========================================
+\section{Marco Tecnológico y Visión General}
+
+La fundamentación técnica del proyecto se sostiene sobre un conjunto de tecnologías modernas orientadas a la eficiencia, escalabilidad y funcionamiento autónomo en entornos domésticos.
+
+\begin{table}[htpb]
+    \centering
+    \caption{Visión General y Stack Tecnológico de EdgeLeak AI}
+    \begin{tabularx}{\textwidth}{>{\bfseries}l X}
+        \toprule
+        Componente / Atributo & Descripción y Tecnología Aplicada \\
+        \midrule
+        Objetivo Principal & Detectar microfugas en acoples bajo el fregadero usando análisis físico sin falsos positivos. \\
+        Aplicación Móvil & \textbf{Flutter (SDK) y Dart:} Permite renderizado nativo, manejo reactivo de estados y compilación multiplataforma desde una sola base de código. \\
+        Hardware Borde (Edge) & \textbf{Microcontrolador ESP32:} Procesa las señales locales con doble núcleo y conectividad Wi-Fi nativa. \\
+        Persistencia de Datos & \textbf{SQLite (sqflite):} Base de datos relacional embebida localmente. Garantiza privacidad y funcionamiento offline continuo en el dispositivo móvil. \\
+        Inteligencia Artificial & \textbf{Groq API (Llama-3.3-70B-Versatile):} Modelo de lenguaje de gran escala utilizado para el análisis de discrepancias sensoriales en ausencia temporal del hardware final. \\
+        Recuperación de Accesos & \textbf{SMTP de Google Workspace:} Transmisión segura (SSL/TLS) de credenciales temporales generadas localmente. \\
+        Control de Versiones & \textbf{Git y GitHub:} Gestión centralizada del código fuente, ramificación de características y resguardo de la evolución del proyecto. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Análisis Tecnológico:} La integración de estas tecnologías permite construir un ecosistema cerrado y seguro. La elección de Flutter reduce el tiempo de desarrollo de interfaces, mientras que SQLite elimina la dependencia de servidores externos para almacenar registros de usuarios, priorizando la privacidad del ecosistema residencial.
+
+% ==========================================
+% 2. ARQUITECTURA DEL SISTEMA
+% ==========================================
+\section{Arquitectura del Sistema}
+
+\subsection{Patrón Modelo-Vista-Controlador (MVC)}
+
+El software adopta el patrón arquitectónico MVC adaptado a las convenciones reactivas del framework Flutter. Esta separación de responsabilidades facilita el mantenimiento y la escalabilidad del código fuente.
+
+\begin{figure}[htpb]
+    \centering
+    \begin{tikzpicture}[
+        node distance = 1.5cm and 2cm,
+        box/.style = {rectangle, draw=primary, thick, fill=blue!5, align=center, rounded corners, minimum width=3.5cm, minimum height=1.5cm},
+        arrow/.style = {-{Stealth[length=2.5mm]}, thick, draw=gray!80}
+    ]
+        % Nodes
+        \node[box] (vista) {\textbf{Vista (View)}\\Pantallas y Widgets\\(UI)};
+        \node[box, right=of vista] (controlador) {\textbf{Controlador}\\Lógica de negocio\\(ChangeNotifier)};
+        \node[box, right=of controlador] (modelo) {\textbf{Modelo (Model)}\\Datos, SQLite, \\Servicios externos};
+        
+        \node[box, below=of controlador, fill=green!5, draw=green!60!black] (usuario) {\textbf{Usuario}\\Interacción física};
+
+        % Arrows
+        \draw[arrow] (usuario) -- node[left, font=\scriptsize] {Acciones} (vista);
+        \draw[arrow] (vista.north east) -- node[above, font=\scriptsize] {Llama métodos} (controlador.north west);
+        \draw[arrow] (controlador.south west) -- node[below, font=\scriptsize] {Notifica cambios} (vista.south east);
+        
+        \draw[arrow] (controlador.north east) -- node[above, font=\scriptsize] {Consulta/Actualiza} (modelo.north west);
+        \draw[arrow] (modelo.south west) -- node[below, font=\scriptsize] {Retorna datos} (controlador.south east);
+    \end{tikzpicture}
+    \caption{Diagrama Arquitectónico MVC reactivo de EdgeLeak AI}
+\end{figure}
+
+\textbf{Análisis de Arquitectura:} El flujo es estrictamente unidireccional. La \textit{Vista} nunca interactúa directamente con la base de datos (\textit{Modelo}). Toda petición pasa por el \textit{Controlador}, quien procesa la regla de negocio, solicita la información al modelo y emite una notificación de cambio de estado (\texttt{notifyListeners()}), provocando que la Vista se redibuje automáticamente solo donde es necesario.
+
+\subsection{Estructura de Flutter y Enrutamiento Estático}
+
+Para la navegación entre pantallas, el proyecto implementa un sistema de rutas estáticas centralizado en el archivo \texttt{app\_routes.dart}. 
+
+\begin{figure}[htpb]
+    \centering
+    \begin{tikzpicture}[
+        node distance = 1cm and 2.5cm,
+        screen/.style = {rectangle, draw=gray, thick, fill=gray!10, rounded corners, minimum width=3cm, minimum height=1cm, align=center},
+        route/.style = {font=\ttfamily\scriptsize, color=primary},
+        arrow/.style = {->, thick, draw=gray}
+    ]
+        \node[screen, draw=primary, thick] (login) {LoginScreen};
+        \node[screen, above right=of login] (dashboard) {DashboardScreen};
+        \node[screen, right=of login] (registro) {RegisterScreen};
+        \node[screen, below right=of login] (recuperar) {ForgotPwdScreen};
+        
+        \draw[arrow] (login) -- node[above, sloped, route] {/dashboard} (dashboard);
+        \draw[arrow] (login) -- node[above, route] {/register} (registro);
+        \draw[arrow] (login) -- node[below, sloped, route] {/forgot\_pwd} (recuperar);
+    \end{tikzpicture}
+    \caption{Esquema básico de enrutamiento estático en Flutter}
+\end{figure}
+
+\textbf{Análisis de Enrutamiento:} Utilizar rutas con nombres definidos por constantes (ej. \texttt{/dashboard}) en lugar de instanciar clases directamente (\texttt{Navigator.push}) centraliza el control de navegación. Esto reduce el acoplamiento, evita errores de tipeo y facilita la validación de inicio de sesión de forma global.
+
+\subsection{Esquema de Hardware Físico y Sensores}
+
+El sistema físico se fundamenta en un ESP32 que captura e interpreta dos variables ambientales clave: ruido vibratorio y conteo de caudal.
+
+\begin{table}[htpb]
+    \centering
+    \caption{Asignación de Pines (Pinout) y Componentes Físicos}
+    \begin{tabularx}{\textwidth}{l l l X}
+        \toprule
+        \textbf{Componente} & \textbf{Pin Sensor} & \textbf{Pin ESP32 (30 p)} & \textbf{Función Técnica} \\
+        \midrule
+        \textbf{Módulo de Ruido} & + (VCC) & 3V3 & Alimentación segura (3.3V). \\
+        (KY-037) & G (GND) & GND & Tierra común del circuito. \\
+         & A0 (Analógico) & D34 (ADC1) & Medición analógica de niveles de ruido. \\
+         & D0 (Digital) & D35 & Detección binaria de picos de sonido (goteo). \\
+        \midrule
+        \textbf{Sensor de Flujo} & Rojo (VCC) & 3V3 & Alimentación de señal segura para el micro.\\
+        (YF-S201) & Negro (GND) & GND & Tierra común. \\
+         & Amarillo (Data) & D32 & Conteo de pulsos (rotación de turbina) por interrupciones.\\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Análisis de Conexiones:} Se establece la alimentación estricta a 3.3V en lugar de 5V para proteger los pines GPIO del ESP32. El uso del pin analógico D34 permite capturar firmas acústicas continuas, mientras que el pin digital D32 para el sensor de flujo permite utilizar interrupciones de hardware, asegurando que no se pierda el conteo de pulsos independientemente de lo que esté procesando la CPU.
+
+\subsection{Bitácora de Decisiones de Hardware}
+
+Durante la conceptualización física, se evaluaron distintas alternativas y se tomaron las siguientes decisiones ingenieriles:
+
+\begin{enumerate}
+    \item \textbf{Por qué ESP32 sobre Arduino UNO:} El Arduino UNO carece de conectividad de red integrada y su capacidad de procesamiento (16 MHz) es insuficiente para el muestreo acústico. El ESP32 (doble núcleo, 240 MHz) integra Wi-Fi nativo, permitiendo procesar el audio y enviar alertas JSON de forma simultánea y eficiente.
+    \item \textbf{Elección del Micrófono KY-037:} Para detectar el impacto físico de una gota de agua, se eligió el KY-037 por su comparador integrado (LM393) y su potenciómetro analógico. Esto permite ajustar físicamente el "umbral de silencio" directamente en el hardware, filtrando el ruido ambiente de una cocina sin sobrecargar al procesador.
+\end{enumerate}
+
+% NOTA DE INSTRUCCIÓN: En esta parte deben agregar las fotos físicas.
+% Comenta o elimina el \rule{}{} y descomenta \includegraphics para poner sus fotos reales.
+\begin{figure}[htpb]
+    \centering
+    % \includegraphics[width=0.7\textwidth]{ruta/a/su/foto1.jpg}
+    \rule{0.7\textwidth}{6cm} % Cuadro gris temporal
+    \caption{Evidencia física: Ensamblaje del circuito y calibración de sensores.}
+\end{figure}
+
+\textbf{Conclusión de Bitácora:} Las decisiones priorizan la capacidad de procesamiento en el borde (Edge Computing) y la eliminación de ruido analógico en hardware, dejando el software móvil libre para enfocarse en la visualización e interpretación.
+
+% ==========================================
+% 3. DESARROLLO DE SOFTWARE Y GESTIÓN
+% ==========================================
+\section{Desarrollo de Software y Gestión de la Información}
+
+\subsection{Repositorio y Control de Versiones}
+
+El proyecto utiliza Git como sistema de control de versiones y GitHub como plataforma de alojamiento. Esto permite mantener un historial estructurado de los avances, facilita la ramificación para pruebas de nuevas interfaces y protege el código fuente contra pérdidas. Cada cambio significativo en el desarrollo de la aplicación móvil ha sido empaquetado en \textit{commits} atómicos.
+
+\subsection{Modelo Entidad-Relación y Evolución de Base de Datos}
+
+El manejo de usuarios y alertas requiere persistencia local. Se emplea SQLite para garantizar una latencia casi nula y privacidad de los datos.
+
+\begin{table}[htpb]
+    \centering
+    \caption{Estructura Entidad-Relación: Tabla \texttt{usuarios} (Schema v3)}
+    \begin{tabularx}{\textwidth}{l l l X}
+        \toprule
+        \textbf{Columna} & \textbf{Tipo SQL} & \textbf{Restricción} & \textbf{Descripción} \\
+        \midrule
+        \texttt{id} & INTEGER & PRIMARY KEY & Identificador autoincremental único. \\
+        \texttt{primer\_nombre} & TEXT & NOT NULL & Nombre de pila del usuario. \\
+        \texttt{primer\_apellido}& TEXT & NOT NULL & Apellido principal. \\
+        \texttt{correo} & TEXT & UNIQUE & Credencial de acceso y recuperación. No permite duplicados. \\
+        \texttt{password} & TEXT & NOT NULL & Cadena de seguridad. \\
+        \texttt{es\_temporal} & INTEGER& DEFAULT 0 & Bandera booleana (0/1) para forzar cambio de clave.\\
+        \texttt{rol} & TEXT & DEFAULT 'operador' & Control de acceso (RBAC): 'admin' u 'operador'. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Análisis de Base de Datos:} A lo largo del proyecto, la base de datos pasó por migraciones de esquema (Schema). De la versión 1 (básica) evolucionó a la versión 3, desglosando el campo "nombre" en variables atómicas e incorporando el campo \texttt{rol}. Usar \texttt{UNIQUE} en el correo evita vulnerabilidades de sobreescritura de cuentas.
+
+% ==========================================
+% 4. INTEGRACIÓN IOT E INTELIGENCIA ARTIFICIAL
+% ==========================================
+\section{Integración IoT e Inteligencia Artificial}
+
+\subsection{Simulación IoT y Gemelos Digitales}
+
+Debido a que el desarrollo de la interfaz de la aplicación móvil puede avanzar más rápido que la construcción del hardware físico, se implementó un sistema de \textbf{Gemelo Digital} (simulación) dentro de la aplicación. 
+Se simula el comportamiento del sensor YF-S201 (Caudal) utilizando generadores matemáticos controlados (curvas senoidales que varían la amplitud), imitando los datos que enviaría el potenciómetro de un circuito en simuladores externos como Wokwi.
+
+\subsection{Justificación Técnica del Modelo de IA}
+
+Para el procesamiento de los patrones en ausencia del nodo final, la aplicación invoca un LLM remoto a través de una API REST.
+
+\begin{table}[htpb]
+    \centering
+    \caption{Parámetros de Configuración del Modelo de Inferencia}
+    \begin{tabularx}{\textwidth}{>{\bfseries}l X}
+        \toprule
+        Parámetro & Configuración Seleccionada \\
+        \midrule
+        Proveedor API & \textbf{Groq} (Permite inferencia ultrarrápida impulsada por LPUs). \\
+        Modelo Específico & \textbf{Llama-3.3-70b-versatile} \\
+        Temperature & \textbf{0.0} (Garantiza respuestas exactas y deterministas, eliminando alucinaciones creativas del modelo). \\
+        Response Format & \textbf{json\_object} (Obliga a la IA a retornar la evaluación en un formato estructurado fácilmente leíble por la aplicación Dart). \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Justificación Tecnológica:} Se seleccionó \texttt{Llama-3.3-70b} alojado en Groq porque ofrece límites de tasa (Rate limits) gratuitos muy generosos para pruebas y una velocidad de respuesta que emula el tiempo real. Usar \textit{Temperature 0.0} es crítico: necesitamos que el sistema opere como una máquina de estados lógicos (diagnóstico riguroso), no como un chatbot conversacional.
+
+% ==========================================
+% 5. MÓDULO DE SEGURIDAD Y AUTENTICACIÓN
+% ==========================================
+\section{Módulo de Seguridad y Autenticación}
+
+\subsection{Gestión de Autenticación}
+
+El controlador de autenticación gestiona el ciclo de vida del usuario, garantizando que el acceso al \textit{Dashboard} solo sea posible con credenciales íntegras.
+
+\begin{table}[htpb]
+    \centering
+    \caption{Funciones Críticas del Controlador de Seguridad}
+    \begin{tabularx}{\textwidth}{l X}
+        \toprule
+        \textbf{Método / Acción} & \textbf{Lógica de Seguridad Implementada} \\
+        \midrule
+        \texttt{login()} & Verifica existencia en BD. Si la bandera \texttt{es\_temporal} está activa, redirige a una pantalla de bloqueo para cambio de clave. \\
+        \texttt{register()} & Comprueba 4 criterios Regex (mayúsculas, números, caracteres especiales y longitud). Si falla, bloquea la inserción SQL. \\
+        \texttt{enviarRecuperacion()}& Genera una clave aleatoria en el dispositivo, actualiza la BD, y la transmite cifrada por TLS/SSL mediante un servidor SMTP hacia el correo del usuario.\\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Conclusión de Autenticación:} Esta estructura previene vulnerabilidades de fuerza bruta superficial, asegura la limpieza del estado (\textit{logout} efectivo limpiando variables en RAM) y provee un mecanismo de recuperación seguro sin intervención manual del desarrollador.
+
+\subsection{Algoritmo de Generación de Contraseñas Seguras}
+
+Para el proceso de recuperación, el sistema no reenvía la clave antigua, sino que genera un token seguro aleatorio.
+
+\begin{lstlisting}[caption={Pseudocódigo para generación de clave segura temporal}]
+Proceso GenerarClaveTemporalSegura
+    Definir claveGenerada Como Caracter
+    Definir longitudDeseada Como Entero
+    longitudDeseada <- 12
+    
+    // Inyeccion obligatoria para cumplir con las politicas de BD
+    claveGenerada <- CaracterAleatorioMayuscula()
+    claveGenerada <- Concatenar(claveGenerada, CaracterAleatorioMinuscula())
+    claveGenerada <- Concatenar(claveGenerada, NumeroAleatorio())
+    claveGenerada <- Concatenar(claveGenerada, SimboloAleatorioEspecial())
+    
+    // Relleno hasta alcanzar longitud deseada
+    Mientras Longitud(claveGenerada) < longitudDeseada Hacer
+        claveGenerada <- Concatenar(claveGenerada, CaracterAleatorioCualquiera())
+    FinMientras
+    
+    // Mezcla aleatoria (Shuffle) para evitar patrones predecibles
+    claveGenerada <- MezclarCaracteres(claveGenerada)
+    
+    Escribir "Nueva clave temporal: ", claveGenerada
+FinProceso
+\end{lstlisting}
+
+\subsection{Inyección Segura de Privilegios}
+
+Para diferenciar a un operador normal de un administrador durante el registro, el sistema lee una variable de entorno oculta (\texttt{.env}). Si el código escrito por el usuario en el formulario coincide con la constante del sistema, se asigna el \texttt{rol = 'admin'}; de lo contrario, se asigna por defecto \texttt{rol = 'operador'}. Esto evita que cualquier visitante pueda escalar privilegios libremente.
+
+\subsection{Validación de Privilegios Elevados}
+
+El módulo de administración implementa una barrera de seguridad simple pero efectiva para acciones destructivas. Si el Administrador A intenta borrar del sistema al Operador B, la aplicación despliega una alerta pidiendo la contraseña del Administrador A. 
+
+\textbf{Lógica:} Si la contraseña ingresada coincide con la sesión actual, la consulta \texttt{DELETE} se ejecuta. Si es incorrecta, la acción se aborta inmediatamente. Esto previene que alguien modifique el sistema si el administrador dejó el dispositivo desbloqueado sobre la mesa.
+
+% ==========================================
+% 6. PRUEBAS AUTOMATIZADAS (TDD)
+% ==========================================
+\section{Pruebas Automatizadas}
+
+El proyecto integra pruebas automatizadas para asegurar que la lógica de negocio no se rompa al agregar nuevas funciones.
+
+\begin{table}[htpb]
+    \centering
+    \caption{Casos de Prueba Unitaria para la Lógica de Modelos}
+    \begin{tabularx}{\textwidth}{l c X}
+        \toprule
+        \textbf{Caso de Prueba (Test)} & \textbf{Estado} & \textbf{Validación Esperada} \\
+        \midrule
+        Detección de Administrador & \textcolor{green!60!black}{\textbf{Pasa}} & Comprueba que el getter \texttt{esAdmin} retorna \texttt{true} si el rol es exactamente 'admin'. \\
+        Construcción de Nombres & \textcolor{green!60!black}{\textbf{Pasa}} & Verifica que la unión de nombre y apellido maneja correctamente los espacios vacíos. \\
+        Protección de Memoria & \textcolor{green!60!black}{\textbf{Pasa}} & Valida que los objetos y \textit{Timers} se destruyen con \texttt{addTearDown()} al finalizar la prueba.\\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Conclusión de Pruebas:} La implementación de pruebas unitarias sobre los modelos de datos reduce drásticamente los errores en tiempo de ejecución (ej. \textit{NullPointerExceptions}) y garantiza la fiabilidad del control de acceso antes de desplegar la aplicación a producción.
+
+\newpage
+% ==========================================
+% 7. DISEÑO DE INTERFAZ DE USUARIO (WIREFRAMES)
+% ==========================================
+\section{Diseño de Interfaz de Usuario (Wireframes)}
+
+A continuación se presenta la propuesta estructural de las pantallas de la aplicación, enfocadas en la usabilidad, claridad de la información y flujos lógicos.
+
+% Instrucción: Aquí cada bloque es un wireframe. Deben cambiar \rule por sus imágenes.
+\vspace{0.5cm}
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/registro.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{1. Registro:} Interfaz de creación de cuenta que implementa la validación visual de contraseñas seguras y contiene el campo opcional para la inyección del código administrativo.
+\vspace{1cm}
+
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/login.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{2. Inicio de Sesión:} Pantalla de acceso principal. Gestiona la autenticación contra SQLite local, validando correos y contraseñas limpiando el historial de navegación al ingresar.
+\vspace{1cm}
+
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/recuperar.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{3. Recuperación de Contraseña:} Flujo de seguridad que solicita el correo electrónico asociado para detonar el servicio SMTP y enviar el token temporal generado algorítmicamente.
+\newpage
+
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/dashboard.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{4. Dashboard Principal:} Centro neurálgico del sistema. Visualiza en tiempo real los datos del sensor de flujo (Gemelo Digital) y el veredicto de alerta emitido por la IA de Groq.
+\vspace{1cm}
+
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/historial.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{5. Historial de Alertas:} Registro cronológico de los incidentes, permitiendo al operador auditar los eventos críticos, anomalías o retornos a estado normal detectados por el sistema.
+\vspace{1cm}
+
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/usuarios.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{6. Gestión de Usuarios:} Interfaz exclusiva para administradores (RBAC) que permite listar, editar roles y observar el padrón total de personas registradas en el ecosistema.
+\newpage
+
+\begin{center}
+    % \includegraphics[height=10cm]{ruta/modal.png}
+    \rule{6cm}{10cm}
+\end{center}
+\textbf{7. Modal de Eliminación (Validación de Privilegios):} Cuadro de diálogo de seguridad crítica que exige reautenticación (escribir la contraseña activa) antes de purgar un registro permanentemente.
+
+\newpage
+% ==========================================
+% 8. GLOSARIO DE TÉRMINOS TÉCNICOS
+% ==========================================
+\section{Glosario de Términos Técnicos}
+
+\begin{itemize}
+    \item \textbf{API (Application Programming Interface):} Interfaz que permite la comunicación entre el software móvil y los modelos de lenguaje en servidores remotos (Groq).
+    \item \textbf{CRUD:} Acrónimo de Create (Crear), Read (Leer), Update (Actualizar) y Delete (Eliminar). Las cuatro operaciones fundamentales en la gestión de bases de datos.
+    \item \textbf{Edge Computing / Edge AI:} Paradigma tecnológico donde el procesamiento de datos y la inteligencia artificial se ejecutan localmente en el propio dispositivo (microcontrolador), evitando depender de la latencia de internet.
+    \item \textbf{ESP32:} Microcontrolador de bajo costo y alto rendimiento equipado con Wi-Fi y Bluetooth, utilizado como el "cerebro" del hardware de EdgeLeak AI.
+    \item \textbf{Flutter:} Framework desarrollado por Google para la creación de aplicaciones nativas en múltiples plataformas utilizando una única base de código en lenguaje Dart.
+    \item \textbf{Falso Positivo:} Situación en la que el sistema emite una alerta de fuga de agua, pero en realidad corresponde a un ruido normal (ej. lavar platos).
+    \item \textbf{JSON (JavaScript Object Notation):} Formato ligero de intercambio de datos, fácil de leer para humanos y máquinas, utilizado para recibir las respuestas estructuradas de la IA.
+    \item \textbf{LLM (Large Language Model):} Modelo de Inteligencia Artificial entrenado con enormes cantidades de datos, capaz de entender contextos complejos y emitir diagnósticos.
+    \item \textbf{Sensor Fusion:} Técnica que combina los datos de dos o más sensores diferentes (ej. vibración + flujo) para generar un contexto más preciso y eliminar errores de lectura.
+    \item \textbf{SMTP (Simple Mail Transfer Protocol):} Protocolo estándar de red utilizado para la transmisión de correos electrónicos desde el sistema móvil hacia la bandeja del usuario.
+    \item \textbf{SQLite:} Motor de base de datos relacional altamente eficiente que opera integrado dentro de la propia aplicación móvil, sin necesidad de instalar servidores adicionales.
+    \item \textbf{TDD (Test-Driven Development):} Metodología de desarrollo guiado por pruebas que garantiza que cada pieza de código cumpla su función correctamente de forma aislada.
+\end{itemize}
+
+\end{document}

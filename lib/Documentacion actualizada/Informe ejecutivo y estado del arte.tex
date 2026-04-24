@@ -1,0 +1,126 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- PAQUETES NECESARIOS ---
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-tabla,es-noquoting]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{helvet}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+% Configuración de tipografía Sans Serif por defecto
+\renewcommand{\familydefault}{\sfdefault}
+
+% Configuración de colores
+\definecolor{primary}{RGB}{0, 102, 204}
+\definecolor{darkgray}{RGB}{60, 60, 60}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=primary,
+    pdftitle={Informe Ejecutivo y Estado del Arte - EdgeLeak AI}
+}
+
+\begin{document}
+
+% --- ENCABEZADO ---
+\begin{center}
+    {\Huge \textbf{\textcolor{primary}{EdgeLeak AI}}}\\[0.5cm]
+    {\LARGE \textbf{Informe Ejecutivo y Estado del Arte}}\\[0.3cm]
+    {\large Sistema Inteligente de Detección Temprana de Microfugas Domésticas}\\[0.5cm]
+    \rule{\textwidth}{0.4pt}
+\end{center}
+\vspace{0.5cm}
+
+% ==========================================
+% 1. INFORME EJECUTIVO
+% ==========================================
+\section*{1. Informe Ejecutivo}
+\addcontentsline{toc}{section}{1. Informe Ejecutivo}
+
+\textbf{EdgeLeak AI} es una solución tecnológica basada en el paradigma de \textit{Internet of Things (IoT)} y \textit{Edge Computing}, diseñada para el ecosistema residencial (Smart Home). Su propósito fundamental es la detección predictiva de microfugas de agua ocultas en los acoples bajo el fregadero, evitando daños estructurales y desperdicio de recursos hídricos antes de que el agua sea visible.
+
+\vspace{0.3cm}
+\noindent\textbf{Objetivos y Alcance del Proyecto:}
+\begin{itemize}[label=\textcolor{primary}{\textbullet}]
+    \item \textbf{Detección Activa:} Superar el enfoque reactivo de los sensores de inundación actuales mediante el análisis de firmas acústicas y vibratorias en las tuberías.
+    \item \textbf{Procesamiento Local (Edge AI):} Procesar las señales directamente en el microcontrolador (ESP32) para garantizar baja latencia, funcionamiento sin internet continuo y privacidad absoluta de los datos del hogar.
+    \item \textbf{Gestión y Control Móvil:} Proveer una aplicación móvil desarrollada en Flutter que permita a los usuarios monitorear el estado del sistema en tiempo real, visualizar historiales y gestionar alertas bajo un sistema de seguridad y roles (RBAC).
+\end{itemize}
+
+\vspace{0.3cm}
+\noindent\textbf{Resultados Esperados:}
+Implementar un nodo de bajo costo ($\sim$\$20 USD) capaz de notificar al usuario sobre micro-goteos (rango de 0.1 a 1.0 L/min) de forma inteligente, eliminando la latencia de la nube y ofreciendo un diagnóstico certero mediante algoritmos de inteligencia artificial.
+
+\vspace{0.8cm}
+
+% ==========================================
+% 2. ESTADO DEL ARTE: ANÁLISIS DE BRECHAS
+% ==========================================
+\section*{2. Estado del Arte: Análisis de Brechas}
+\addcontentsline{toc}{section}{2. Estado del Arte: Análisis de Brechas}
+
+En la revisión sistemática de las soluciones actuales de mercado y de literatura científica en el campo de la detección de fugas, se identificó un vacío crítico en la aplicación de tecnologías predictivas para el entorno doméstico. Las soluciones avanzadas están diseñadas exclusivamente para acueductos municipales (Smart Cities) o entornos industriales controlados, dejando a los hogares únicamente con sensores reactivos (que alertan cuando el charco ya está formado).
+
+Al intentar trasladar los principios de detección industrial al entorno de una cocina residencial, emerge una brecha técnica fundamental que ninguna solución actual resuelve de forma integral:
+
+\subsection*{Brecha Identificada: Falsos Positivos por Ausencia de Contexto}
+
+\begin{center}
+\fcolorbox{primary}{blue!5}{
+\begin{minipage}{0.95\textwidth}
+\vspace{0.2cm}
+\textbf{El Problema:} Los sensores acústicos o piezoeléctricos son el estándar tecnológico para detectar fugas invisibles, pero \textbf{producen un alto índice de falsos positivos en entornos domésticos.} El ruido generado por el uso cotidiano de un fregadero (lavar platos, abrir el grifo) produce una firma vibratoria indistinguible de una fuga para un sistema monomodal que analiza únicamente la señal de audio.
+\vspace{0.2cm}
+\end{minipage}
+}
+\end{center}
+
+\vspace{0.3cm}
+\noindent\textbf{Evidencia en las soluciones existentes:}
+\begin{itemize}
+    \item Las pruebas de precisión en la literatura científica actual se realizan en laboratorios hidráulicos cerrados o tuberías subterráneas, entornos que no sufren de la "contaminación acústica" constante de un usuario utilizando su cocina.
+    \item Las aplicaciones residenciales open-source analizadas activan las alarmas ante cualquier pico de sonido o humedad, careciendo de un mecanismo de "discriminación contextual" para saber si el agua fluyendo es por uso normal o por una avería.
+\end{itemize}
+
+\vspace{0.8cm}
+
+% ==========================================
+% 3. POSICIONAMIENTO DE LA PROPUESTA
+% ==========================================
+\section*{3. Posicionamiento de la Propuesta (Nuestra Solución)}
+\addcontentsline{toc}{section}{3. Posicionamiento de la Propuesta (Nuestra Solución)}
+
+\textbf{EdgeLeak AI} cierra esta brecha estructural introduciendo una estrategia de \textbf{Sensor Fusion} (Fusión de Sensores) inédita en el nicho doméstico de bajo costo, la cual cruza dos señales físicas complementarias para otorgarle \textit{contexto} al sistema:
+
+\begin{enumerate}
+    \item \textbf{Señal acústica:} Un módulo de sonido de alta sensibilidad (KY-037) captura la turbulencia generada por el micro-goteo en la tubería.
+    \item \textbf{Señal de caudal:} Un sensor de flujo (YF-S201) actúa como un \textit{interruptor de contexto}.
+\end{enumerate}
+
+\vspace{0.3cm}
+Al combinar ambas variables en el microcontrolador (ESP32), EdgeLeak AI implementa la siguiente lógica determinista para eliminar matemáticamente los falsos positivos derivados del uso diario:
+
+\begin{table}[htpb]
+    \centering
+    \caption{Matriz de Inferencia por Sensor Fusion en EdgeLeak AI}
+    \begin{tabularx}{0.95\textwidth}{l l X}
+        \toprule
+        \textbf{Sensor de Flujo} & \textbf{Señal Acústica} & \textbf{Decisión del Sistema} \\
+        \midrule
+        Caudal > 0 L/min & Ruido / Vibración detectada & \textbf{Uso Normal} (Grifo abierto por el usuario. El ruido es justificado). $\rightarrow$ \textcolor{darkgray}{Sin Alerta} \\
+        \addlinespace
+        \textbf{Caudal = 0 L/min} & \textbf{Ruido / Vibración detectada} & \textbf{Microfuga Silenciosa} (No hay flujo legítimo, pero hay firma acústica de goteo). $\rightarrow$ \textcolor{red}{\textbf{Alerta Crítica}} \\
+        \addlinespace
+        Caudal = 0 L/min & Sin señal & \textbf{Reposo Normal} (Sistema inactivo). $\rightarrow$ \textcolor{darkgray}{Sin Alerta} \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\textbf{Conclusión del Estado del Arte:} 
+EdgeLeak AI no busca competir con las macro-redes de infraestructura municipal, sino ocupar un nicho totalmente descuidado: la miniaturización inteligente. Al combinar la estrategia de \textit{Sensor Fusion} con procesamiento en el \textit{Edge}, el sistema neutraliza la brecha de los falsos positivos y transforma el obsoleto paradigma doméstico reactivo en un modelo genuinamente preventivo, contextual y económico.
+
+\end{document}

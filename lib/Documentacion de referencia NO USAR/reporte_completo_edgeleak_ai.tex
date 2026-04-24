@@ -1,0 +1,834 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{mdframed}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\geometry{margin=2.5cm}
+
+% ---- Colores del sistema ----
+\definecolor{primaryblue}{RGB}{33,150,243}
+\definecolor{criticalred}{RGB}{244,67,54}
+\definecolor{normalgreen}{RGB}{76,175,80}
+\definecolor{warningorange}{RGB}{255,152,0}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{darkgray}{RGB}{55,55,55}
+
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray},
+  keywordstyle=\color{primaryblue}\bfseries,
+  commentstyle=\color{normalgreen},
+  stringstyle=\color{criticalred},
+  showstringspaces=false,
+  tabsize=2,
+  captionpos=b,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{EdgeLeak AI -- Reporte Técnico Completo}
+\lhead{Documentación Integral}
+\cfoot{\thepage}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=primaryblue,
+  urlcolor=primaryblue,
+  citecolor=primaryblue,
+  pdftitle={Reporte Técnico Completo - EdgeLeak AI},
+  pdfauthor={Proyecto EdgeLeak AI},
+}
+
+\titleformat{\section}{\Large\bfseries\color{primaryblue}}{}{0em}{\thesection.\enspace}
+\titleformat{\subsection}{\large\bfseries\color{darkgray}}{}{0em}{\thesubsection.\enspace}
+\titleformat{\subsubsection}{\normalsize\bfseries}{}{0em}{\thesubsubsection.\enspace}
+
+% ====================================================================
+\title{
+  \Huge\textbf{Reporte Técnico Completo}\\[0.5em]
+  \textcolor{primaryblue}{\rule{\linewidth}{1.5pt}}\\[0.3em]
+  \Large\textbf{EdgeLeak AI}\\[0.2em]
+  \large Sistema Inteligente de Detección de Fugas de Agua\\[0.5em]
+  \normalsize Compilación integral de todas las fases de documentación técnica:\\
+  Fase MVP $\rightarrow$ Fase 2 $\rightarrow$ Fase 3 (CRUD/Roles) $\rightarrow$
+  Fase 4 (Correcciones) $\rightarrow$ Actualización \#5
+}
+\author{Proyecto EdgeLeak AI}
+\date{\today}
+% ====================================================================
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{mdframed}[linecolor=primaryblue,linewidth=1.5pt,backgroundcolor=blue!3]
+\textbf{Alcance del documento:} Este reporte consolida \emph{toda} la documentación técnica
+del proyecto EdgeLeak AI desde su Fase MVP hasta la Actualización~\#5. Incluye la
+arquitectura del sistema, el stack tecnológico, los esquemas de base de datos, los módulos
+de seguridad, la integración con IA, los flujos de autenticación, el módulo CRUD
+administrativo, las pruebas unitarias, y las correcciones implementadas en cada iteración.
+Todos los datos están organizados en tablas para facilitar la auditoría y el mantenimiento.
+\end{mdframed}
+
+\vspace{1em}
+\tableofcontents
+\newpage
+
+% ====================================================================
+\section{Visión General del Proyecto}
+% ====================================================================
+
+EdgeLeak AI es una aplicación móvil (Android/iOS) desarrollada en Flutter que implementa
+un sistema de detección inteligente de fugas de agua. Ante la ausencia de hardware físico
+en las fases iniciales, el sistema incorpora un gemelo digital (simulador IoT) y delega
+el análisis de patrones a un modelo de lenguaje de gran escala (LLM) a través de la API
+de Groq.
+
+\begin{longtable}{>{\bfseries}p{4cm} p{9.5cm}}
+\caption{Ficha técnica del proyecto EdgeLeak AI} \label{tab:ficha-tecnica} \\
+\toprule
+\textbf{Atributo} & \textbf{Valor} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Atributo} & \textbf{Valor} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Nombre & EdgeLeak AI \\
+Plataformas objetivo & Android, iOS (con soporte potencial a Web/Desktop vía Flutter) \\
+Framework & Flutter SDK / Lenguaje Dart \\
+IA & Groq API, Modelo Llama-3.3-70B-Versatile \\
+Persistencia & SQLite local (paquete \texttt{sqflite}) \\
+Correo & Google Workspace SMTP (SSL/TLS) \\
+Seguridad de entorno & \texttt{flutter\_dotenv} (variables de entorno) \\
+Patrón de arquitectura & MVC adaptado con \texttt{ChangeNotifier} / \texttt{ListenableBuilder} \\
+Metodología de pruebas & TDD (Test-Driven Development) con \texttt{flutter\_test} \\
+Versión actual de BD & \texttt{edgeleak\_v3.db} (schema version 3) \\
+\end{longtable}
+
+% ====================================================================
+\section{Arquitectura del Sistema (MVC Reactivo)}
+% ====================================================================
+
+El proyecto sigue el patrón MVC adaptado a las convenciones de reactividad de Flutter,
+garantizando bajo acoplamiento y alta cohesión.
+
+\begin{longtable}{>{\ttfamily}p{3.5cm} p{3.5cm} p{7cm}}
+\caption{Estructura de capas del proyecto (directorio \texttt{lib/})} \label{tab:arquitectura} \\
+\toprule
+\textbf{Directorio} & \textbf{Capa MVC} & \textbf{Responsabilidad} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Directorio} & \textbf{Capa MVC} & \textbf{Responsabilidad} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+/config          & Configuración & Enrutamiento estático (\texttt{AppRoutes}), paleta de colores semánticos (Material Design 3), temas globales. \\[0.4em]
+/data/models     & Modelo        & POJOs en Dart: \texttt{UsuarioModel}, \texttt{AlertaFugaModel}, \texttt{LecturaSensorModel}. Incluyen serialización/deserialización JSON/Map. \\[0.4em]
+/data/services   & Modelo        & Capa de infraestructura: \texttt{DatabaseService} (SQLite), \texttt{EmailService} (SMTP), \texttt{GroqApiService} (REST). \\[0.4em]
+/controllers     & Controlador   & \texttt{AuthController} (sesión, registro, recuperación), \texttt{DashboardController} (simulador IoT, integración IA). \\[0.4em]
+/view/screens    & Vista         & Pantallas: Login, Registro, Dashboard, Historial, Recuperación, Cambio de Clave, Administración. \\[0.4em]
+/view/widgets    & Vista         & Componentes reutilizables: \texttt{StatusIndicatorWidget}, \texttt{WaterWaveWidget}. \\
+\end{longtable}
+
+\subsection{Enrutamiento Estático (\texttt{AppRoutes})}
+
+\begin{longtable}{>{\ttfamily}p{4.5cm} >{\ttfamily}p{4.5cm} p{4.5cm}}
+\caption{Rutas definidas en \texttt{AppRoutes}} \label{tab:rutas} \\
+\toprule
+\textbf{Constante} & \textbf{Valor (String)} & \textbf{Pantalla} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Constante} & \textbf{Valor (String)} & \textbf{Pantalla} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+loginScreen          & 'login'           & \texttt{LoginScreen} \\
+registerScreen       & 'register'        & \texttt{RegisterScreen} \\
+forgotPasswordScreen & 'forgot\_password' & \texttt{ForgotPasswordScreen} \\
+changePasswordScreen & 'change\_password' & \texttt{ChangePasswordScreen} \\
+dashboardScreen      & 'dashboard'       & \texttt{DashboardScreen} \\
+historialScreen      & 'historial'       & \texttt{HistorialScreen} \\
+adminUsersScreen     & 'admin\_users'     & \texttt{AdminUsersScreen} \\
+\end{longtable}
+
+% ====================================================================
+\section{Stack Tecnológico}
+% ====================================================================
+
+\begin{longtable}{p{3.5cm} p{3.5cm} p{7cm}}
+\caption{Stack tecnológico completo del sistema} \label{tab:stack} \\
+\toprule
+\textbf{Categoría} & \textbf{Tecnología} & \textbf{Uso y Justificación} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Categoría} & \textbf{Tecnología} & \textbf{Uso y Justificación} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Frontend & Flutter SDK & Framework multiplataforma. Renderizado nativo de alta performance. \\[0.3em]
+Lenguaje & Dart & Tipado estático, null-safety, async/await, ecosistema pub.dev. \\[0.3em]
+IA/LLM & Groq API & Inferencia ultrarrápida con Llama-3.3-70B. Temperatura 0 para determinismo. \\[0.3em]
+Persistencia & sqflite + SQLite & Base de datos relacional embebida. Funciona en modo offline. \\[0.3em]
+Correo & mailer + Gmail SMTP & Envío de contraseñas temporales por SSL/TLS. \\[0.3em]
+Variables de entorno & flutter\_dotenv & Separación de credenciales del código fuente. \\[0.3em]
+Testing & flutter\_test & Pruebas unitarias y de widget bajo metodología TDD. \\[0.3em]
+Rutas de archivos & path (paquete) & Construcción multiplataforma de rutas de archivos SQLite. \\
+\end{longtable}
+
+% ====================================================================
+\section{Esquema de Base de Datos (Evolución Histórica)}
+% ====================================================================
+
+La base de datos local ha evolucionado a través de múltiples versiones de schema para
+soportar nuevas funcionalidades.
+
+\subsection{Historial de Versiones del Schema}
+
+\begin{longtable}{p{2cm} p{3.5cm} p{8cm}}
+\caption{Historial de migraciones de la base de datos} \label{tab:historial-db} \\
+\toprule
+\textbf{Versión} & \textbf{Archivo DB} & \textbf{Cambios Introducidos} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Versión} & \textbf{Archivo DB} & \textbf{Cambios Introducidos} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+v1 & edgeleak\_v2.db & Schema inicial: tablas \texttt{historial} y \texttt{usuarios} con campos \texttt{id}, \texttt{nombre}, \texttt{correo}, \texttt{password}. \\[0.3em]
+v2 & edgeleak\_v3.db & Adición de columna \texttt{es\_temporal} (INTEGER 0/1) en \texttt{usuarios} para soporte de contraseñas temporales. Adición de columna \texttt{rol} (TEXT) para RBAC. \\[0.3em]
+v3 & edgeleak\_v3.db & Adición de columnas \texttt{primer\_nombre}, \texttt{segundo\_nombre}, \texttt{primer\_apellido}, \texttt{segundo\_apellido}. Migración automática con preservación de datos legados. \\
+\end{longtable}
+
+\subsection{Tabla: \texttt{usuarios} (Schema v3 actual)}
+
+\begin{longtable}{>{\ttfamily}p{3.8cm} p{2.5cm} p{2cm} p{5.2cm}}
+\caption{Definición completa de la tabla \texttt{usuarios}} \label{tab:tabla-usuarios} \\
+\toprule
+\textbf{Columna} & \textbf{Tipo SQL} & \textbf{Restricción} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Columna} & \textbf{Tipo SQL} & \textbf{Restricción} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+id              & INTEGER & PK, AUTOINCR. & Identificador único autoincremental. \\[0.3em]
+primer\_nombre  & TEXT    & DEFAULT ''    & Primer nombre del usuario (obligatorio en UI). \\[0.3em]
+segundo\_nombre & TEXT    & DEFAULT ''    & Segundo nombre (opcional). \\[0.3em]
+primer\_apellido& TEXT    & DEFAULT ''    & Primer apellido (obligatorio en UI). \\[0.3em]
+segundo\_apellido& TEXT   & DEFAULT ''    & Segundo apellido (opcional). \\[0.3em]
+correo          & TEXT    & UNIQUE        & Correo electrónico. Llave de negocio para evitar duplicidad. \\[0.3em]
+password        & TEXT    & ---           & Contraseña en texto plano (se planea migrar a bcrypt). \\[0.3em]
+es\_temporal    & INTEGER & DEFAULT 0     & Flag de contraseña temporal. 0=permanente, 1=temporal. \\[0.3em]
+rol             & TEXT    & DEFAULT 'operador' & Privilegio del usuario: \texttt{'admin'} o \texttt{'operador'}. \\
+\end{longtable}
+
+\subsection{Tabla: \texttt{historial}}
+
+\begin{longtable}{>{\ttfamily}p{3cm} p{3cm} p{7.5cm}}
+\caption{Definición de la tabla \texttt{historial}} \label{tab:tabla-historial} \\
+\toprule
+\textbf{Columna} & \textbf{Tipo SQL} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Columna} & \textbf{Tipo SQL} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+id        & INTEGER & PK, AUTOINCREMENTAL. \\
+veredicto & TEXT    & Clasificación de la IA (Ej. ``Fuga Detectada'', ``Normal''). \\
+severidad & TEXT    & Nivel de criticidad: \texttt{"Normal"}, \texttt{"Advertencia"}, \texttt{"Crítica"}. \\
+mensaje   & TEXT    & Acción recomendada generada por el LLM. \\
+fecha     & TEXT    & Timestamp en formato ISO-8601. \\
+\end{longtable}
+
+% ====================================================================
+\section{Modelo de Datos: \texttt{UsuarioModel}}
+% ====================================================================
+
+\begin{longtable}{>{\ttfamily}p{4cm} p{2.5cm} p{3cm} p{4cm}}
+\caption{Propiedades del modelo \texttt{UsuarioModel}} \label{tab:usuario-model} \\
+\toprule
+\textbf{Propiedad Dart} & \textbf{Tipo} & \textbf{Requerido} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Propiedad Dart} & \textbf{Tipo} & \textbf{Requerido} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+id              & int?   & No  & Clave primaria (null para nuevos registros). \\
+primerNombre    & String & Sí  & Primer nombre. \\
+segundoNombre   & String & No  & Segundo nombre (def. \texttt{''}). \\
+primerApellido  & String & Sí  & Primer apellido. \\
+segundoApellido & String & No  & Segundo apellido (def. \texttt{''}). \\
+correo          & String & Sí  & Email validado con regex en la UI. \\
+password        & String & Sí  & Contraseña. \\
+esTemporal      & int    & No  & \texttt{0}=permanente, \texttt{1}=temporal (def. \texttt{0}). \\
+rol             & String & No  & \texttt{'admin'} o \texttt{'operador'} (def. \texttt{'operador'}). \\
+\midrule
+\multicolumn{4}{l}{\textbf{Getters calculados:}} \\
+\midrule
+nombre  & String & --- & Nombre completo calculado a partir de los 4 campos. \\
+esAdmin & bool   & --- & \texttt{true} si \texttt{rol == 'admin'}. \\
+\end{longtable}
+
+% ====================================================================
+\section{Módulo de Autenticación (\texttt{AuthController})}
+% ====================================================================
+
+\begin{longtable}{>{\ttfamily}p{5.5cm} p{8cm}}
+\caption{Métodos públicos de \texttt{AuthController}} \label{tab:auth-controller} \\
+\toprule
+\textbf{Método / Getter} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Método / Getter} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{login(correo, pass)} &
+  Autentica al usuario contra SQLite. Si \texttt{es\_temporal == 1}, la UI redirige a \texttt{ChangePasswordScreen}. \\[0.3em]
+\texttt{register(p1, p2, ap1, ap2, correo, pass, \{rol\})} &
+  Registra un nuevo usuario con los 4 campos de nombre. Valida política de contraseña antes de insertar. \\[0.3em]
+\texttt{enviarCorreoRecuperacion(correo)} &
+  Genera contraseña temporal, la persiste con \texttt{es\_temporal=1} y la envía vía SMTP. \\[0.3em]
+\texttt{cambiarPasswordObligatorio(pass)} &
+  Actualiza la contraseña en BD, \textbf{limpia} \texttt{usuarioActual = null} y retorna \texttt{true}. \\[0.3em]
+\texttt{obtenerTodosLosUsuarios()} &
+  Carga la lista completa de usuarios en \texttt{\_listaUsuarios} (para CRUD Admin). \\[0.3em]
+\texttt{eliminarUsuario(id)} &
+  Borra un usuario. Impide autoeliminación validando contra \texttt{usuarioActual?.id}. \\[0.3em]
+\texttt{actualizarDatosUsuario(usuario)} &
+  Actualiza nombre y rol de un usuario existente. \\[0.3em]
+\texttt{validatePassword(pass)} &
+  Actualiza los 4 flags de validación de contraseña en tiempo real. \\[0.3em]
+\texttt{generarContrasenaSegura()} &
+  Genera una contraseña de 12 caracteres con shuffle criptográfico. \\[0.3em]
+\texttt{isPasswordValid} &
+  Getter: \texttt{true} si los 4 criterios de seguridad se cumplen. \\[0.3em]
+\texttt{resetValidators()} &
+  Reinicia los validadores de contraseña y el mensaje de error. \\
+\end{longtable}
+
+\subsection{Criterios de Validación de Contraseña}
+
+\begin{longtable}{p{3cm} p{5cm} p{5.5cm}}
+\caption{Criterios de validación de contraseña fuerte} \label{tab:criterios-pass} \\
+\toprule
+\textbf{Criterio} & \textbf{Regex / Condición} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Criterio} & \textbf{Regex / Condición} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Longitud mínima   & \texttt{length >= 8}            & Mínimo 8 caracteres. \\
+Mayúsculas        & \texttt{RegExp(r'[A-Z]')}        & Al menos 1 letra mayúscula. \\
+Números           & \texttt{RegExp(r'[0-9]')}        & Al menos 1 dígito numérico. \\
+Caracteres especiales & \texttt{RegExp(r'[!@\#\$\&*~]')} & Al menos 1 símbolo del conjunto \texttt{!@\#\$\&*\textasciitilde}. \\
+\end{longtable}
+
+% ====================================================================
+\section{Módulo de Simulación IoT (Gemelo Digital)}
+% ====================================================================
+
+El \texttt{DashboardController} implementa un simulador de sensor de caudal (YF-S201)
+mediante funciones de \texttt{dart:math}, generando lecturas periódicas cada 2 segundos.
+
+\begin{longtable}{p{3.5cm} p{3.5cm} p{3.5cm} p{3cm}}
+\caption{Estados del simulador de caudal (Gemelo Digital)} \label{tab:simulador} \\
+\toprule
+\textbf{Modo} & \textbf{Rango de Caudal} & \textbf{Representación Visual} & \textbf{Veredicto IA} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Modo} & \textbf{Rango de Caudal} & \textbf{Representación Visual} & \textbf{Veredicto IA} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Normal    & 0.1 -- 0.5 L/min & Ondas lentas, baja amplitud  & Normal \\
+Anomalía  & 1.2 -- 2.5 L/min & Ondas medias, amp. moderada  & Advertencia \\
+Fuga Crítica & 6.0 -- 9.0 L/min & Ondas rápidas, alta amplitud & Crítico \\
+\end{longtable}
+
+Las fluctuaciones se visualizan mediante un \texttt{CustomPainter} que renderiza ondas
+senoidales: $y = A \cdot \sin(\omega x + \phi)$, donde la amplitud $A$ y la velocidad
+angular $\omega$ varían según el estado del sistema.
+
+% ====================================================================
+\section{Integración de Inteligencia Artificial (Groq API)}
+% ====================================================================
+
+\begin{longtable}{p{4cm} p{9.5cm}}
+\caption{Configuración del payload enviado a Groq API} \label{tab:groq-payload} \\
+\toprule
+\textbf{Parámetro} & \textbf{Valor / Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Parámetro} & \textbf{Valor / Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Modelo & \texttt{llama-3.3-70b-versatile} \\
+Método HTTP & \texttt{POST} a \texttt{https://api.groq.com/openai/v1/chat/completions} \\
+Response format & \texttt{json\_object} (garantiza respuesta parseable) \\
+Temperature & \texttt{0.0} (determinismo: elimina alucinaciones y variabilidad) \\
+System Role & Define esquema JSON exacto esperado: \texttt{\{veredicto, severidad, mensaje\}} \\
+User Role & Inyecta lectura de caudal en L/min y parámetros del sistema métrico \\
+\end{longtable}
+
+\begin{longtable}{p{3cm} p{3cm} p{7.5cm}}
+\caption{Estructura del objeto JSON retornado por la IA} \label{tab:json-ia} \\
+\toprule
+\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Campo} & \textbf{Tipo} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{veredicto} & String & Clasificación: \texttt{"Normal"}, \texttt{"Goteo/Anomalía"} o \texttt{"Fuga Detectada"}. \\
+\texttt{severidad} & String & Nivel: \texttt{"Normal"}, \texttt{"Advertencia"} o \texttt{"Crítica"}. \\
+\texttt{mensaje}   & String & Recomendación accionable generada por el LLM en español. \\
+\end{longtable}
+
+% ====================================================================
+\section{Protocolo de Recuperación de Credenciales (SMTP)}
+% ====================================================================
+
+\begin{longtable}{p{4cm} p{9.5cm}}
+\caption{Características del módulo de recuperación SMTP} \label{tab:smtp} \\
+\toprule
+\textbf{Característica} & \textbf{Descripción Técnica} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Característica} & \textbf{Descripción Técnica} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Protocolo & SMTP (Simple Mail Transfer Protocol) directo a Google Workspace. \\
+Seguridad de transporte & SSL/TLS implícito (cifrado extremo a extremo). \\
+Autenticación S2S & Contraseñas de Aplicación de Google con 2FA activo. Credenciales aisladas del código fuente vía \texttt{.env}. \\
+Formato de correo & Plantilla HTML/CSS responsiva (no texto plano). \\
+Cuenta remitente & \texttt{edgeleak.ai@gmail.com} (configurada en variables de entorno). \\
+Algoritmo de generación & \texttt{generarContrasenaSegura()}: longitud 12, inyección obligatoria de 4 tipos de caracteres + dispersión aleatoria. \\
+\end{longtable}
+
+\subsection{Algoritmo de Generación de Contraseñas Seguras}
+
+El método \texttt{generarContrasenaSegura()} opera en tres fases:
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Inyección obligatoria:} Garantiza al menos un carácter de cada conjunto:
+        Mayúsculas \texttt{[A-Z]}, Minúsculas \texttt{[a-z]}, Números \texttt{[0-9]},
+        Símbolos \texttt{[!@\#\$\&*\textasciitilde]}.
+  \item \textbf{Relleno aleatorio:} Completa hasta longitud estándar de 12 caracteres
+        usando el conjunto unificado.
+  \item \textbf{Dispersión (Shuffle):} Aplica permutación aleatoria sobre los índices del
+        arreglo para eliminar patrones predecibles.
+\end{enumerate}
+
+% ====================================================================
+\section{Flujo de Intercepción UX: Cambio Obligatorio de Contraseña}
+% ====================================================================
+
+\begin{longtable}{p{0.5cm} p{4cm} p{4cm} p{5cm}}
+\caption{Flujo completo de contraseña temporal} \label{tab:flujo-temp} \\
+\toprule
+\textbf{\#} & \textbf{Acción} & \textbf{Clase/Método} & \textbf{Resultado} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{Acción} & \textbf{Clase/Método} & \textbf{Resultado} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+1 & Usuario solicita recuperación & \texttt{ForgotPasswordScreen} & Se busca el correo en BD. \\
+2 & Sistema genera clave temporal & \texttt{generarContrasenaSegura()} & Cadena de 12 chars segura. \\
+3 & Se persiste con flag temporal & \texttt{actualizarPassword(id, pass, true)} & \texttt{es\_temporal = 1} en BD. \\
+4 & Se envía por correo & \texttt{EmailService.enviarCorreoRecuperacion()} & HTML/CSS vía SMTP. \\
+5 & Usuario inicia sesión & \texttt{AuthController.login()} & Lee \texttt{es\_temporal}. \\
+6 & Intercepción de navegación & \texttt{LoginScreen} & Redirige a \texttt{ChangePasswordScreen}. \\
+7 & Pantalla bloqueada & \texttt{PopScope(canPop: false)} & No permite retroceder. \\
+8 & Usuario cambia contraseña & \texttt{cambiarPasswordObligatorio()} & \texttt{es\_temporal = 0}, \texttt{usuarioActual = null}. \\
+9 & Redirección segura & \texttt{ChangePasswordScreen} & \texttt{pushNamedAndRemoveUntil} → Login. \\
+10 & Usuario se autentica de nuevo & \texttt{LoginScreen} & Acceso al Dashboard con credencial permanente. \\
+\end{longtable}
+
+% ====================================================================
+\section{Control de Acceso Basado en Roles (RBAC)}
+% ====================================================================
+
+\begin{longtable}{p{3cm} p{5.5cm} p{5cm}}
+\caption{Definición de roles y sus privilegios} \label{tab:rbac} \\
+\toprule
+\textbf{Rol} & \textbf{Funcionalidades Habilitadas} & \textbf{Restricciones} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Rol} & \textbf{Funcionalidades Habilitadas} & \textbf{Restricciones} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{operador} &
+  Dashboard, Historial de eventos, Análisis IA, Simulador. &
+  Sin acceso al CRUD de usuarios (\texttt{AdminUsersScreen} no se renderiza). \\[0.3em]
+\texttt{admin} &
+  Todo lo de operador + Gestión de usuarios (crear/editar/eliminar), escalado de privilegios. &
+  No puede eliminar su propia cuenta activa. Sudo Mode requerido para operaciones críticas. \\
+\end{longtable}
+
+\subsection{Inyección Segura de Privilegios (Registro de Administradores)}
+
+\begin{longtable}{p{4.5cm} p{9cm}}
+\caption{Flujo de asignación de rol en el registro} \label{tab:asignacion-rol} \\
+\toprule
+\textbf{Condición} & \textbf{Resultado} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Condición} & \textbf{Resultado} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{SECRET\_ADMIN\_CODE} en \texttt{.env} coincide con el código ingresado en el campo opcional &
+  \texttt{UsuarioModel} instanciado con \texttt{rol: 'admin'}. \\
+Código no coincide o campo vacío &
+  \texttt{UsuarioModel} instanciado con \texttt{rol: 'operador'} (mínima autoridad por defecto). \\
+\end{longtable}
+
+% ====================================================================
+\section{Módulo CRUD Administrativo (\texttt{AdminUsersScreen})}
+% ====================================================================
+
+\begin{longtable}{p{4cm} p{9.5cm}}
+\caption{Funcionalidades del panel de administración de usuarios} \label{tab:crud-admin} \\
+\toprule
+\textbf{Función} & \textbf{Implementación} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Función} & \textbf{Implementación} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Listado reactivo & \texttt{ListenableBuilder} sincronizado con \texttt{AuthController.listaUsuarios}. \\[0.3em]
+Búsqueda dinámica & Filtrado en memoria con \texttt{.where()} aplicado sobre \texttt{listaUsuarios}. Normalización con \texttt{toLowerCase()}. \\[0.3em]
+Identificación visual & Avatares \textcolor{criticalred}{\textbf{Rojo}} = admin, \textcolor{primaryblue}{\textbf{Azul}} = operador. \\[0.3em]
+Edición (Sudo Mode) & AlertDialog con 4 campos de nombre + rol + contraseña de confirmación. \\[0.3em]
+Eliminación (Sudo Mode) & Diálogo de confirmación con validación de contraseña del administrador activo. \\[0.3em]
+Seguridad de autoeliminación & \texttt{eliminarUsuario()} compara \texttt{usuario.id} contra \texttt{usuarioActual?.id} antes de ejecutar DELETE. \\
+\end{longtable}
+
+\subsection{Defensa en Profundidad: Sudo Mode}
+
+El mecanismo de reautenticación activa opera de la siguiente forma para proteger operaciones
+críticas (editar rol, eliminar usuario):
+
+\begin{enumerate}[leftmargin=2em]
+  \item El administrador inicia la operación (botón editar o eliminar).
+  \item Se abre un \texttt{AlertDialog} con \texttt{StatefulBuilder} que solicita la
+        contraseña actual del administrador.
+  \item El controlador compara \texttt{input == usuarioActual?.password}.
+  \item \textbf{Si coincide:} se ejecuta la transacción SQL y se notifica el resultado.
+  \item \textbf{Si no coincide:} se muestra un \texttt{SnackBar} de error y se cancela
+        la operación sin acceder a la base de datos.
+\end{enumerate}
+
+% ====================================================================
+\section{Formulario de Registro (Diseño Actual -- Actualización \#5)}
+% ====================================================================
+
+\begin{longtable}{p{4.5cm} p{2.5cm} p{3cm} p{3.5cm}}
+\caption{Campos del formulario de registro actualizado} \label{tab:form-registro-v5} \\
+\toprule
+\textbf{Campo} & \textbf{Oblig.} & \textbf{Tipo de entrada} & \textbf{Validación} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Campo} & \textbf{Oblig.} & \textbf{Tipo de entrada} & \textbf{Validación} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Primer Nombre *        & Sí & Texto libre & No vacío \\
+Segundo Nombre         & No & Texto libre & Ninguna \\
+Primer Apellido *      & Sí & Texto libre & No vacío \\
+Segundo Apellido       & No & Texto libre & Ninguna \\
+Correo Electrónico *   & Sí & Email       & Regex RFC-5322 simplificado \\
+Contraseña *           & Sí & Contraseña  & 4 criterios de seguridad \\
+Código Admin           & No & Texto libre & Comparación contra \texttt{.env} \\
+\end{longtable}
+
+\subsection{Validación de Correo Electrónico}
+
+\begin{longtable}{p{5cm} p{2.5cm} p{6cm}}
+\caption{Ejemplos de validación de correo electrónico con regex} \label{tab:email-validacion-full} \\
+\toprule
+\textbf{Cadena de entrada} & \textbf{Resultado} & \textbf{Motivo} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Cadena de entrada} & \textbf{Resultado} & \textbf{Motivo} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+\texttt{usuario@dominio.com}   & \textcolor{normalgreen}{\checkmark} Válido   & Formato completo RFC. \\
+\texttt{user.name+tag@sub.d.co}& \textcolor{normalgreen}{\checkmark} Válido   & Caracteres especiales permitidos. \\
+\texttt{sinArroba.com}         & \textcolor{criticalred}{\texttimes} Inválido  & Ausencia de \texttt{@}. \\
+\texttt{@sinusuario.com}       & \textcolor{criticalred}{\texttimes} Inválido  & Parte local vacía. \\
+\texttt{usuario@}              & \textcolor{criticalred}{\texttimes} Inválido  & Dominio ausente. \\
+\texttt{usuario@dom}           & \textcolor{criticalred}{\texttimes} Inválido  & TLD < 2 caracteres. \\
+\texttt{(vacío)}               & \textcolor{criticalred}{\texttimes} Inválido  & Campo obligatorio vacío. \\
+\end{longtable}
+
+% ====================================================================
+\section{Flujos de Navegación del Sistema}
+% ====================================================================
+
+\begin{longtable}{p{5cm} p{4cm} p{4.5cm}}
+\caption{Flujos de navegación completos del sistema} \label{tab:flujos-nav} \\
+\toprule
+\textbf{Acción del usuario} & \textbf{Pantalla origen} & \textbf{Destino (post-\#5)} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Acción del usuario} & \textbf{Pantalla origen} & \textbf{Destino (post-\#5)} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Iniciar aplicación & --- & \texttt{LoginScreen} (ruta inicial) \\
+Login exitoso (clave normal) & \texttt{LoginScreen} & \texttt{DashboardScreen} \\
+Login con clave temporal & \texttt{LoginScreen} & \texttt{ChangePasswordScreen} \\
+Cambio de clave exitoso & \texttt{ChangePasswordScreen} & \texttt{LoginScreen} (stack limpio) \\
+Registro exitoso & \texttt{RegisterScreen} & \texttt{LoginScreen} (stack limpio) \\
+Click ``¿Olvidaste tu contraseña?'' & \texttt{LoginScreen} & \texttt{ForgotPasswordScreen} \\
+Recuperación exitosa & \texttt{ForgotPasswordScreen} & \texttt{LoginScreen} \\
+Acceso al historial & \texttt{DashboardScreen} & \texttt{HistorialScreen} \\
+Acceso al CRUD (solo admin) & \texttt{DashboardScreen} & \texttt{AdminUsersScreen} \\
+\end{longtable}
+
+% ====================================================================
+\section{Pruebas Automatizadas (TDD)}
+% ====================================================================
+
+\subsection{Estrategia de Testing}
+
+\begin{longtable}{p{4cm} p{9.5cm}}
+\caption{Enfoques de prueba implementados} \label{tab:estrategia-test} \\
+\toprule
+\textbf{Tipo de Prueba} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Tipo de Prueba} & \textbf{Descripción} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Pruebas Unitarias & Auditan la lógica pura de los controladores (sin dependencias de Flutter). Archivo: \texttt{test/unit\_tests/user\_logic\_test.dart}. \\[0.3em]
+Pruebas de Widget & Simulan entorno virtual de Flutter con \texttt{WidgetTester}. Montan pantallas y verifican el árbol de widgets. Archivo: \texttt{test/widget\_test.dart}. \\[0.3em]
+Manejo de memoria & Uso de \texttt{addTearDown()} para eliminar instancias activas de \texttt{Timer.periodic}, previniendo fugas de memoria en la Dart VM. \\
+\end{longtable}
+
+\subsection{Casos de Prueba Unitaria (Actualizados a v5)}
+
+\begin{longtable}{p{6cm} p{2.5cm} p{5cm}}
+\caption{Casos de prueba en \texttt{user\_logic\_test.dart}} \label{tab:unit-tests} \\
+\toprule
+\textbf{Nombre del Test} & \textbf{Estado} & \textbf{Valida} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Nombre del Test} & \textbf{Estado} & \textbf{Valida} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+El modelo debe detectar correctamente el rol admin &
+  \textcolor{normalgreen}{\checkmark} Activo &
+  \texttt{esAdmin == true} para \texttt{rol='admin'}. \\[0.3em]
+El modelo debe denegar acceso admin a un operador &
+  \textcolor{normalgreen}{\checkmark} Activo &
+  \texttt{esAdmin == false} para \texttt{rol='operador'}. \\[0.3em]
+El mapeo de datos debe incluir el campo rol &
+  \textcolor{normalgreen}{\checkmark} Activo &
+  \texttt{toMap()['rol'] == 'admin'}. \\[0.3em]
+getter nombre combina todos los campos &
+  \textcolor{normalgreen}{\checkmark} Nuevo &
+  \texttt{nombre == 'Juan Carlos García López'}. \\[0.3em]
+getter nombre omite campos opcionales vacíos &
+  \textcolor{normalgreen}{\checkmark} Nuevo &
+  \texttt{nombre == 'Ana Martínez'} (sin dobles espacios). \\[0.3em]
+toMap incluye los cuatro campos de nombre &
+  \textcolor{normalgreen}{\checkmark} Nuevo &
+  \texttt{primer\_nombre}, \texttt{primer\_apellido} en el Map. \\[0.3em]
+fromMap reconstruye el modelo desde nuevos campos &
+  \textcolor{normalgreen}{\checkmark} Nuevo &
+  \texttt{primerNombre == 'Laura'}, \texttt{primerApellido == 'Gómez'}. \\[0.3em]
+fromMap usa el campo nombre legado &
+  \textcolor{normalgreen}{\checkmark} Nuevo &
+  Retrocompatibilidad: \texttt{primer\_nombre == ''} → usa \texttt{nombre}. \\
+\end{longtable}
+
+% ====================================================================
+\section{Historial de Actualizaciones y Defectos Corregidos}
+% ====================================================================
+
+\begin{longtable}{p{2cm} p{3.5cm} p{8cm}}
+\caption{Registro histórico de actualizaciones y correcciones} \label{tab:historial-updates} \\
+\toprule
+\textbf{Fase} & \textbf{Módulo / Área} & \textbf{Descripción del Cambio} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Fase} & \textbf{Módulo / Área} & \textbf{Descripción del Cambio} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+
+MVP &
+  Arquitectura base &
+  Creación del sistema completo: simulador IoT, integración Groq API, historial SQLite,
+  sistema de registro/login con validación de contraseñas. \\[0.3em]
+
+Fase 2 (v3 BD) &
+  Seguridad y SMTP &
+  Migración del schema a v3 (\texttt{es\_temporal}), módulo de recuperación SMTP, algoritmo
+  \texttt{generarContrasenaSegura()}, flujo \texttt{ChangePasswordScreen} con
+  \texttt{PopScope(canPop:false)}. \\[0.3em]
+
+Fase 3 / Act. \#3 &
+  TDD &
+  Integración de \texttt{flutter\_test}: pruebas unitarias de validación de contraseñas,
+  pruebas de widget de LoginScreen, manejo de \texttt{addTearDown()} para Timers. \\[0.3em]
+
+Act. \#4 (CRUD) &
+  RBAC y Administración &
+  Adición del campo \texttt{rol} en BD (migración v2), \texttt{AdminUsersScreen} con CRUD
+  completo, Sudo Mode para edición/eliminación, búsqueda dinámica en memoria,
+  inyección de \texttt{SECRET\_ADMIN\_CODE} vía \texttt{flutter\_dotenv}. \\[0.3em]
+
+\textbf{Act. \#5} &
+  \textbf{Registro y Flujos} &
+  \textbf{(1) Separación de \texttt{nombre} en 4 campos; (2) validación de correo
+  con regex; (3) navegación post-registro limpia al login; (4) cierre de sesión
+  y redirección al login tras cambio de contraseña temporal; (5) migración BD v3
+  automática; (6) actualización CRUD admin con 4 campos de nombre; (7) 5 nuevos
+  tests unitarios.} \\
+
+\end{longtable}
+
+% ====================================================================
+\section{Consideraciones de Seguridad y Trabajo Futuro}
+% ====================================================================
+
+\subsection{Estado Actual de Seguridad}
+
+\begin{longtable}{p{4cm} p{4cm} p{5.5cm}}
+\caption{Análisis del estado de seguridad actual} \label{tab:seguridad} \\
+\toprule
+\textbf{Área} & \textbf{Estado Actual} & \textbf{Mejora Recomendada} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Área} & \textbf{Estado Actual} & \textbf{Mejora Recomendada} \\
+\midrule
+\endhead
+\bottomrule
+\endlastfoot
+Almacenamiento de contraseñas &
+  Texto plano en SQLite local &
+  Implementar hashing con bcrypt o Argon2. \\[0.3em]
+Validación de correo &
+  Regex en cliente (UI) &
+  Añadir restricción CHECK en SQLite o validación en backend. \\[0.3em]
+Autenticación &
+  Comparación directa de strings &
+  Migrar a tokens JWT o sessions con expiración. \\[0.3em]
+Sesión post-cambio de clave &
+  \textcolor{normalgreen}{Corregido en \#5}: sesión limpiada, redirect al login &
+  Considerar tiempo de expiración de sesión. \\[0.3em]
+Navegación post-registro &
+  \textcolor{normalgreen}{Corregido en \#5}: stack limpiado, siempre al login &
+  Sin cambios adicionales requeridos. \\[0.3em]
+Sudo Mode CRUD &
+  Comparación de contraseña en texto plano &
+  Migrar a validación con hash cuando se implemente bcrypt. \\[0.3em]
+Variables de entorno &
+  \texttt{flutter\_dotenv} (\texttt{.env} local) &
+  En producción, usar gestión de secretos (ej. AWS Secrets Manager). \\
+\end{longtable}
+
+\subsection{Roadmap Técnico Sugerido}
+
+\begin{enumerate}[leftmargin=2em]
+  \item \textbf{Hashing de contraseñas:} Implementar \texttt{bcrypt} o \texttt{Argon2}
+        antes de cualquier despliegue en producción.
+  \item \textbf{Backend remoto:} Migrar de SQLite local a un servidor REST (Node.js, Django)
+        con PostgreSQL para soporte multiusuario real.
+  \item \textbf{Hardware físico:} Integrar el sensor YF-S201 real mediante comunicación
+        BLE (Bluetooth Low Energy) o Wi-Fi para reemplazar el gemelo digital.
+  \item \textbf{Notificaciones push:} Implementar alertas en tiempo real (Firebase Cloud
+        Messaging) cuando la IA detecte una fuga crítica.
+  \item \textbf{Dashboard analítico:} Añadir gráficas históricas (con \texttt{fl\_chart})
+        para visualizar tendencias de caudal a lo largo del tiempo.
+\end{enumerate}
+
+\end{document}
