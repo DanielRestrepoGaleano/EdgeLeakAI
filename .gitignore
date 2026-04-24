@@ -47,3 +47,6 @@ app.*.map.json
 
 # Secretos y variables de entorno
 .env*
+
+#Carpetas eliminadas
+lib/documentacion_tecnica/
