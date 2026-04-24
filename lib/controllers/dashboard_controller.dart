@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/models/lectura_sensor_model.dart';
 import '../data/models/alerta_fuga_model.dart';
+import '../data/models/lectura_raw_model.dart';
 import '../data/services/groq_api_service.dart';
 import '../data/services/database_service.dart';
 import '../data/services/local_api_service.dart';
@@ -17,22 +18,28 @@ class DashboardController extends ChangeNotifier {
   bool iaProcesando = false;
   String modoSimulacion = 'Normal';
 
-  // Guardamos el nombre de la persona logueada
   String usuarioLogueado = 'Usuario';
 
   AlertaFugaModel? ultimaAlerta;
   List<AlertaFugaModel> historialEventos = [];
   Timer? _simuladorTimer;
 
-  // --- Sensor Fusion ---
+  // --- Filtros del historial ---
+  String? filtroSeveridad;
+  DateTime? filtroDesde;
+  DateTime? filtroHasta;
+  int _historialOffset = 0;
+  static const int _historialPageSize = 20;
+  bool hayMasHistorial = false;
 
-  /// Estado derivado de la fusión de los sensores de ruido y flujo.
-  /// Posibles valores: 'Sin datos', 'Uso Normal', 'Posible Fuga', 'Sin Clasificar'.
+  // --- Selección múltiple en historial ---
+  final Set<int> seleccionados = {};
+  bool modoSeleccion = false;
+
+  // --- Sensor Fusion ---
   String _estadoActual = 'Sin datos';
   String get estadoActual => _estadoActual;
 
-  /// Buffer de las últimas 10 lecturas recibidas desde el ESP32.
-  /// Cada entrada contiene: ruido (int), flujo (double), estado (String), timestamp (String).
   final List<Map<String, dynamic>> _bufferLecturas = [];
   List<Map<String, dynamic>> get bufferLecturas =>
       List.unmodifiable(_bufferLecturas);
@@ -65,14 +72,118 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------------------------------------------------------------------
+  // Historial con filtros y paginación
+  // ---------------------------------------------------------------------------
+
   Future<void> inicializarHistorial() async {
-    historialEventos = await _dbService.obtenerHistorial();
+    _historialOffset = 0;
+    historialEventos = await _dbService.obtenerHistorialFiltrado(
+      severidad: filtroSeveridad,
+      desde: filtroDesde,
+      hasta: filtroHasta,
+      limit: _historialPageSize + 1,
+      offset: 0,
+    );
+
+    if (historialEventos.length > _historialPageSize) {
+      historialEventos = historialEventos.sublist(0, _historialPageSize);
+      hayMasHistorial = true;
+    } else {
+      hayMasHistorial = false;
+    }
+
+    _historialOffset = historialEventos.length;
+    seleccionados.clear();
+    modoSeleccion = false;
     notifyListeners();
   }
 
+  Future<void> cargarMasHistorial() async {
+    final mas = await _dbService.obtenerHistorialFiltrado(
+      severidad: filtroSeveridad,
+      desde: filtroDesde,
+      hasta: filtroHasta,
+      limit: _historialPageSize + 1,
+      offset: _historialOffset,
+    );
+
+    if (mas.length > _historialPageSize) {
+      historialEventos.addAll(mas.sublist(0, _historialPageSize));
+      hayMasHistorial = true;
+    } else {
+      historialEventos.addAll(mas);
+      hayMasHistorial = false;
+    }
+
+    _historialOffset = historialEventos.length;
+    notifyListeners();
+  }
+
+  void aplicarFiltros({
+    String? severidad,
+    DateTime? desde,
+    DateTime? hasta,
+  }) {
+    filtroSeveridad = severidad;
+    filtroDesde = desde;
+    filtroHasta = hasta;
+    inicializarHistorial();
+  }
+
+  void limpiarFiltros() {
+    filtroSeveridad = null;
+    filtroDesde = null;
+    filtroHasta = null;
+    inicializarHistorial();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Eliminación de alertas
+  // ---------------------------------------------------------------------------
+
+  Future<void> eliminarAlerta(int id) async {
+    await _dbService.eliminarAlerta(id);
+    seleccionados.remove(id);
+    await inicializarHistorial();
+  }
+
+  Future<void> eliminarAlertasSeleccionadas() async {
+    await _dbService.eliminarAlertas(seleccionados.toList());
+    seleccionados.clear();
+    modoSeleccion = false;
+    await inicializarHistorial();
+  }
+
+  void toggleSeleccion(int id) {
+    if (seleccionados.contains(id)) {
+      seleccionados.remove(id);
+    } else {
+      seleccionados.add(id);
+    }
+    if (seleccionados.isEmpty) modoSeleccion = false;
+    notifyListeners();
+  }
+
+  void activarModoSeleccion(int idInicial) {
+    modoSeleccion = true;
+    seleccionados.add(idInicial);
+    notifyListeners();
+  }
+
+  void cancelarSeleccion() {
+    seleccionados.clear();
+    modoSeleccion = false;
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Simulador
+  // ---------------------------------------------------------------------------
+
   void setModoSimulacion(String modo) {
     modoSimulacion = modo;
-    ultimaAlerta = null; 
+    ultimaAlerta = null;
     _generarCaudalInmediato();
     iniciarSimuladorDinamico();
   }
@@ -102,7 +213,10 @@ class DashboardController extends ChangeNotifier {
     ultimaAlerta = null;
     notifyListeners();
 
-    final lecturaActual = LecturaSensorModel(caudalLPM: caudalActual, timestamp: DateTime.now());
+    final lecturaActual = LecturaSensorModel(
+      caudalLPM: caudalActual,
+      timestamp: DateTime.now(),
+    );
     final respuestaIA = await _apiService.analizarPatronReal(lecturaActual);
 
     if (respuestaIA.veredicto != 'Error de Red / IA') {
@@ -110,20 +224,15 @@ class DashboardController extends ChangeNotifier {
     }
 
     ultimaAlerta = respuestaIA;
-    await inicializarHistorial(); 
+    await inicializarHistorial();
     iaProcesando = false;
     notifyListeners();
   }
 
-  /// Procesa una lectura del ESP32 aplicando lógica de Sensor Fusion.
-  ///
-  /// Reglas:
-  /// - 'Uso Normal'    : ruido > 1500 Y flujo > 0.5
-  /// - 'Posible Fuga'  : ruido > 1500 Y flujo < 0.1
-  /// - 'Sin Clasificar': resto de combinaciones
-  ///
-  /// Si el estado 'Posible Fuga' persiste 3 lecturas consecutivas (≈ 15 s),
-  /// se llama a [GroqApiService] siempre que no exista un cooldown activo de 3 min.
+  // ---------------------------------------------------------------------------
+  // Sensor Fusion (lecturas del ESP32)
+  // ---------------------------------------------------------------------------
+
   Future<void> procesarLecturaSensor(int ruido, double flujo) async {
     final DateTime timestampLectura = DateTime.now();
 
@@ -140,7 +249,17 @@ class DashboardController extends ChangeNotifier {
     _estadoActual = estado;
     caudalActual = flujo;
 
-    // 2. Actualizar buffer (máximo 10 lecturas)
+    // 2. Guardar lectura cruda en BD
+    await _dbService.insertarLecturaRaw(
+      LecturaRawModel(
+        ruido: ruido,
+        flujo: flujo,
+        estado: estado,
+        timestamp: timestampLectura,
+      ),
+    );
+
+    // 3. Actualizar buffer en memoria (máximo 10 lecturas)
     _bufferLecturas.add({
       'ruido': ruido,
       'flujo': flujo,
@@ -151,7 +270,7 @@ class DashboardController extends ChangeNotifier {
       _bufferLecturas.removeAt(0);
     }
 
-    // 3. Rate-limit para Groq
+    // 4. Rate-limit para Groq
     if (estado == 'Posible Fuga') {
       _contadorPosibleFuga++;
     } else {
@@ -160,7 +279,8 @@ class DashboardController extends ChangeNotifier {
 
     if (_contadorPosibleFuga >= _umbralFugasConsecutivas && !iaProcesando) {
       final ahora = DateTime.now();
-      final cooldownExpirado = _lastGroqEvaluation == null ||
+      final cooldownExpirado =
+          _lastGroqEvaluation == null ||
           ahora.difference(_lastGroqEvaluation!).inMinutes >= _cooldownMinutos;
 
       if (cooldownExpirado) {

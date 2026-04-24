@@ -3,14 +3,15 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../dto/sensor_request_dto.dart';
+import '../dto/alerta_fuga_dto.dart';
 import 'database_service.dart';
 
-/// Clave secreta para el endpoint protegido GET /api/history.
-/// Se lee primero de la variable de entorno LOCAL_API_KEY definida en .env;
-/// si no está presente se usa el valor de referencia del proyecto.
-/// Debe coincidir con el header x-api-key enviado por el cliente.
-String get _kApiKey =>
-    dotenv.env['LOCAL_API_KEY'] ?? 'edgeleak-share-2024';
+/// Clave secreta para los endpoints protegidos.
+/// - GET  /api/history  → x-api-key obligatorio.
+/// - POST /api/sensor   → x-api-key obligatorio (seguridad mínima).
+/// Se lee de LOCAL_API_KEY en .env; si no está se usa el valor de referencia.
+String get _kApiKey => dotenv.env['LOCAL_API_KEY'] ?? 'edgeleak-share-2024';
 
 /// Tipo de callback que el DashboardController expone para recibir lecturas
 /// del sensor ESP32 y ejecutar la lógica de Sensor Fusion.
@@ -103,34 +104,46 @@ class LocalApiService {
   // POST /api/sensor
   // ---------------------------------------------------------------------------
 
-  /// Recibe {"ruido": int, "flujo": double} desde el ESP32 cada 5 segundos,
-  /// delega la lógica de fusión de sensores en el [DashboardController] y
+  /// Recibe {"ruido": int, "flujo": double} desde el ESP32 cada 5 segundos.
+  /// Requiere header x-api-key válido; si no, responde 401 Unauthorized.
+  /// Delega la lógica de fusión de sensores en el [DashboardController] y
   /// devuelve el estado resultante.
   Future<void> _manejarPostSensor(HttpRequest request) async {
+    // Seguridad mínima: validar x-api-key en el endpoint de entrada del hardware
+    final apiKeyHeader = request.headers.value('x-api-key');
+    if (apiKeyHeader != _kApiKey) {
+      await _responder(
+        request,
+        HttpStatus.unauthorized,
+        {'error': 'No autorizado. Header x-api-key inválido o ausente.'},
+      );
+      return;
+    }
+
     try {
       final body = await utf8.decoder.bind(request).join();
       final Map<String, dynamic> data =
           jsonDecode(body) as Map<String, dynamic>;
 
-      if (!data.containsKey('ruido') || !data.containsKey('flujo')) {
+      final SensorRequestDto dto;
+      try {
+        dto = SensorRequestDto.fromMap(data);
+      } on FormatException catch (e) {
         await _responder(
           request,
           HttpStatus.badRequest,
-          {'error': 'Campos requeridos: ruido (int) y flujo (double)'},
+          {'error': e.message},
         );
         return;
       }
 
-      final int ruido = (data['ruido'] as num).toInt();
-      final double flujo = (data['flujo'] as num).toDouble();
-
-      await _onProcesarLectura(ruido, flujo);
+      await _onProcesarLectura(dto.ruido, dto.flujo);
 
       await _responder(request, HttpStatus.ok, {
         'status': 'ok',
         'estado': _onEstadoActual(),
-        'ruido': ruido,
-        'flujo': flujo,
+        'ruido': dto.ruido,
+        'flujo': dto.flujo,
       });
     } on FormatException {
       await _responder(
@@ -160,17 +173,8 @@ class LocalApiService {
     }
 
     final historial = await _dbService.obtenerHistorial();
-    final jsonList = historial
-        .map(
-          (alerta) => {
-            'id': alerta.id,
-            'veredicto': alerta.veredicto,
-            'severidad': alerta.severidad,
-            'mensaje': alerta.mensaje,
-            'timestamp': alerta.fecha.toIso8601String(),
-          },
-        )
-        .toList();
+    final jsonList =
+        historial.map((alerta) => AlertaFugaDto.fromModel(alerta).toMap()).toList();
 
     await _responder(request, HttpStatus.ok, jsonList);
   }

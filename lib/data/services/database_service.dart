@@ -1,7 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/alerta_fuga_model.dart';
-import '../models/usuario_model.dart'; // Importación única corregida
+import '../models/lectura_raw_model.dart';
+import '../models/usuario_model.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -13,11 +14,11 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'edgeleak_v3.db');
-    
+    String path = join(await getDatabasesPath(), 'edgeleak_v4.db');
+
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE historial(
@@ -28,7 +29,7 @@ class DatabaseService {
             fecha TEXT
           )
         ''');
-        
+
         await db.execute('''
           CREATE TABLE usuarios(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,6 +43,16 @@ class DatabaseService {
             rol TEXT DEFAULT 'operador'
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE lecturas_raw(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ruido INTEGER,
+            flujo REAL,
+            estado TEXT,
+            timestamp TEXT
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -50,15 +61,32 @@ class DatabaseService {
           );
         }
         if (oldVersion < 3) {
-          // Migración: añadir los campos de nombre separados
-          await db.execute("ALTER TABLE usuarios ADD COLUMN primer_nombre TEXT DEFAULT ''");
-          await db.execute("ALTER TABLE usuarios ADD COLUMN segundo_nombre TEXT DEFAULT ''");
-          await db.execute("ALTER TABLE usuarios ADD COLUMN primer_apellido TEXT DEFAULT ''");
-          await db.execute("ALTER TABLE usuarios ADD COLUMN segundo_apellido TEXT DEFAULT ''");
-          // Migrar nombre legado al primer_nombre para no perder datos existentes
+          await db.execute(
+            "ALTER TABLE usuarios ADD COLUMN primer_nombre TEXT DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE usuarios ADD COLUMN segundo_nombre TEXT DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE usuarios ADD COLUMN primer_apellido TEXT DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE usuarios ADD COLUMN segundo_apellido TEXT DEFAULT ''",
+          );
           await db.execute(
             "UPDATE usuarios SET primer_nombre = nombre WHERE nombre IS NOT NULL AND nombre != ''",
           );
+        }
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS lecturas_raw(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ruido INTEGER,
+              flujo REAL,
+              estado TEXT,
+              timestamp TEXT
+            )
+          ''');
         }
       },
     );
@@ -141,12 +169,95 @@ class DatabaseService {
 
   Future<void> insertarAlerta(AlertaFugaModel alerta) async {
     final db = await database;
-    await db.insert('historial', alerta.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'historial',
+      alerta.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<AlertaFugaModel>> obtenerHistorial() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('historial', orderBy: 'id DESC');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'historial',
+      orderBy: 'id DESC',
+    );
     return List.generate(maps.length, (i) => AlertaFugaModel.fromMap(maps[i]));
+  }
+
+  /// Devuelve el historial paginado con filtros opcionales de severidad y rango de fechas.
+  Future<List<AlertaFugaModel>> obtenerHistorialFiltrado({
+    String? severidad,
+    DateTime? desde,
+    DateTime? hasta,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final db = await database;
+
+    final List<String> where = [];
+    final List<dynamic> args = [];
+
+    if (severidad != null && severidad.isNotEmpty) {
+      where.add('severidad = ?');
+      args.add(severidad);
+    }
+    if (desde != null) {
+      where.add("fecha >= ?");
+      args.add(desde.toIso8601String());
+    }
+    if (hasta != null) {
+      where.add("fecha <= ?");
+      args.add(hasta.toIso8601String());
+    }
+
+    final maps = await db.query(
+      'historial',
+      where: where.isEmpty ? null : where.join(' AND '),
+      whereArgs: args.isEmpty ? null : args,
+      orderBy: 'fecha DESC',
+      limit: limit,
+      offset: offset,
+    );
+
+    return maps.map(AlertaFugaModel.fromMap).toList();
+  }
+
+  Future<int> eliminarAlerta(int id) async {
+    final db = await database;
+    return db.delete('historial', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> eliminarAlertas(List<int> ids) async {
+    if (ids.isEmpty) return 0;
+    final db = await database;
+    final placeholders = ids.map((_) => '?').join(', ');
+    return db.delete(
+      'historial',
+      where: 'id IN ($placeholders)',
+      whereArgs: ids,
+    );
+  }
+
+  // === MÉTODOS DE LECTURAS RAW ===
+
+  Future<void> insertarLecturaRaw(LecturaRawModel lectura) async {
+    final db = await database;
+    await db.insert(
+      'lecturas_raw',
+      lectura.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Retorna las últimas [limit] lecturas crudas, ordenadas del más reciente al más antiguo.
+  Future<List<LecturaRawModel>> obtenerLecturasRaw({int limit = 50}) async {
+    final db = await database;
+    final maps = await db.query(
+      'lecturas_raw',
+      orderBy: 'id DESC',
+      limit: limit,
+    );
+    return maps.map(LecturaRawModel.fromMap).toList();
   }
 }
