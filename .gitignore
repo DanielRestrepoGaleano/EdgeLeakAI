@@ -49,4 +49,5 @@ app.*.map.json
 .env*
 
 #Carpetas eliminadas
-lib/documentacion_tecnica/
+lib/Documentacion_de_referencia_NO_USAR/
+"lib/Documentacion de referencia NO USAR/"
