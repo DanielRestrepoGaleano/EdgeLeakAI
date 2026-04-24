@@ -3,6 +3,7 @@ import '../../controllers/dashboard_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../config/themes/app_theme.dart';
 import '../../config/routes/app_routes.dart';
+import '../../data/models/alerta_fuga_model.dart';
 
 /// Pantalla exclusiva para administradores.
 ///
@@ -662,7 +663,7 @@ class _BufferTable extends StatelessWidget {
 }
 
 class _AlertaBanner extends StatelessWidget {
-  final alerta;
+  final AlertaFugaModel alerta;
 
   const _AlertaBanner({required this.alerta});
 

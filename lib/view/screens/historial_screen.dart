@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../config/themes/app_theme.dart';
+import '../../data/models/alerta_fuga_model.dart';
 
 class HistorialScreen extends StatefulWidget {
   final DashboardController controller;
@@ -361,7 +362,7 @@ class _BarraFiltros extends StatelessWidget {
 }
 
 class _AlertaCard extends StatelessWidget {
-  final evento;
+  final AlertaFugaModel evento;
   final bool isSelected;
   final bool modoSeleccion;
   final VoidCallback onLongPress;
