@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../controllers/dashboard_controller.dart';
-import '../../controllers/auth_controller.dart'; // 🟢 Importar AuthController
+import '../../controllers/auth_controller.dart';
 import '../../config/themes/app_theme.dart';
 import '../widgets/status_indicator_widget.dart';
 import '../widgets/water_wave_widget.dart';
@@ -8,9 +8,8 @@ import '../../config/routes/app_routes.dart';
 
 class DashboardScreen extends StatelessWidget {
   final DashboardController controller;
-  final AuthController authController; // 🟢 Añadirlo a la clase
+  final AuthController authController;
 
-  // Actualizar constructor
   const DashboardScreen({
     super.key,
     required this.controller,
@@ -29,18 +28,12 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          // 🟢 BOTÓN DE ADMINISTRACIÓN: Solo visible si es admin
-          if (authController.usuarioActual?.esAdmin == true)
-            IconButton(
-              icon: const Icon(Icons.manage_accounts),
-              onPressed: () =>
-                  Navigator.pushNamed(context, AppRoutes.adminUsersScreen),
-              tooltip: 'Gestión de Usuarios',
-            ),
           IconButton(
             icon: const Icon(Icons.history),
-            onPressed: () =>
-                Navigator.pushNamed(context, AppRoutes.historialScreen),
+            onPressed: () {
+              controller.inicializarHistorial();
+              Navigator.pushNamed(context, AppRoutes.historialScreen);
+            },
             tooltip: 'Ver Historial local',
           ),
           IconButton(
@@ -62,6 +55,7 @@ class DashboardScreen extends StatelessWidget {
                 StatusIndicatorWidget(conectado: controller.conectado),
                 const SizedBox(height: 15),
 
+                // ── Tarjeta de caudal con animación de olas ──────────────
                 Card(
                   clipBehavior: Clip.antiAlias,
                   elevation: 6,
@@ -96,11 +90,13 @@ class DashboardScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 48,
                                   fontWeight: FontWeight.bold,
-                                  color: controller.modoSimulacion == 'Fuga'
-                                      ? AppTheme.criticalColor
-                                      : (controller.modoSimulacion == 'Anomalia'
-                                            ? AppTheme.warningColor
-                                            : AppTheme.primaryColor),
+                                  color:
+                                      controller.modoSimulacion == 'Fuga'
+                                          ? AppTheme.criticalColor
+                                          : (controller.modoSimulacion ==
+                                                    'Anomalia'
+                                                ? AppTheme.warningColor
+                                                : AppTheme.primaryColor),
                                 ),
                               ),
                             ),
@@ -110,11 +106,31 @@ class DashboardScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
 
-                const Text(
-                  'Inyección de Estado al Sensor:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                // ── Leyenda de umbrales ──────────────────────────────────
+                const SizedBox(height: 8),
+                _UmbralLegenda(),
+                const SizedBox(height: 16),
+
+                // ── Selector de simulación ───────────────────────────────
+                Row(
+                  children: [
+                    const Text(
+                      'Inyección de Estado:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message:
+                          'Selecciona el estado que quieres simular en el sensor.\n'
+                          'Normal: uso doméstico  |  Anomalía: flujo irregular  |  Fuga: tubería rota',
+                      child: const Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 SegmentedButton<String>(
@@ -140,15 +156,17 @@ class DashboardScreen extends StatelessWidget {
                       controller.setModoSimulacion(newSelection.first),
                   style: SegmentedButton.styleFrom(
                     selectedForegroundColor: Colors.white,
-                    selectedBackgroundColor: controller.modoSimulacion == 'Fuga'
-                        ? AppTheme.criticalColor
-                        : (controller.modoSimulacion == 'Anomalia'
-                              ? AppTheme.warningColor
-                              : AppTheme.normalColor),
+                    selectedBackgroundColor:
+                        controller.modoSimulacion == 'Fuga'
+                            ? AppTheme.criticalColor
+                            : (controller.modoSimulacion == 'Anomalia'
+                                  ? AppTheme.warningColor
+                                  : AppTheme.normalColor),
                   ),
                 ),
                 const SizedBox(height: 15),
 
+                // ── Resultado de la IA ───────────────────────────────────
                 if (controller.iaProcesando)
                   const Center(
                     child: Column(
@@ -166,11 +184,13 @@ class DashboardScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: controller.ultimaAlerta!.severidad == 'Crítica'
-                          ? AppTheme.criticalColor
-                          : (controller.ultimaAlerta!.severidad == 'Advertencia'
-                                ? AppTheme.warningColor
-                                : AppTheme.normalColor),
+                      color:
+                          controller.ultimaAlerta!.severidad == 'Crítica'
+                              ? AppTheme.criticalColor
+                              : (controller.ultimaAlerta!.severidad ==
+                                        'Advertencia'
+                                    ? AppTheme.warningColor
+                                    : AppTheme.normalColor),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -232,6 +252,84 @@ class DashboardScreen extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Leyenda compacta con los umbrales de referencia.
+class _UmbralLegenda extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _LegendaItem(
+            color: AppTheme.normalColor,
+            label: 'Normal',
+            range: '≤ 0.5 L/min',
+          ),
+          _LegendaItem(
+            color: AppTheme.warningColor,
+            label: 'Anomalía',
+            range: '0.5–5 L/min',
+          ),
+          _LegendaItem(
+            color: AppTheme.criticalColor,
+            label: 'Fuga',
+            range: '> 5 L/min',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendaItem extends StatelessWidget {
+  final Color color;
+  final String label;
+  final String range;
+
+  const _LegendaItem({
+    required this.color,
+    required this.label,
+    required this.range,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          range,
+          style: const TextStyle(color: Colors.black54, fontSize: 10),
+        ),
+      ],
     );
   }
 }

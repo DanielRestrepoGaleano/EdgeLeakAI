@@ -83,13 +83,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           _passController.text.trim()
                         );
 
-                        if (usuario != null && context.mounted) {
+                      if (usuario != null && context.mounted) {
                           widget.dashboardController.setUsuarioLogueado(usuario.nombre);
-                          
-                          // 🔒 CIBERSEGURIDAD: Si la clave es temporal, atraparlo en el reseteo
+                          // Inicializar historial al entrar
+                          widget.dashboardController.inicializarHistorial();
+
+                          // 🔒 Si la clave es temporal, forzar cambio de contraseña
                           if (usuario.esTemporal == 1) {
                             Navigator.pushReplacementNamed(context, AppRoutes.changePasswordScreen);
+                          } else if (usuario.esAdmin) {
+                            // Administrador → Panel de monitoreo exclusivo
+                            Navigator.pushReplacementNamed(context, AppRoutes.adminDashboardScreen);
                           } else {
+                            // Operador → Dashboard con simulador
                             Navigator.pushReplacementNamed(context, AppRoutes.dashboardScreen);
                           }
                         }

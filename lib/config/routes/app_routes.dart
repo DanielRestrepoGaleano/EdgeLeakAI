@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../view/screens/dashboard_screen.dart';
+import '../../view/screens/admin_dashboard_screen.dart';
 import '../../view/screens/historial_screen.dart';
 import '../../view/screens/login_screen.dart';
 import '../../view/screens/register_screen.dart';
@@ -15,6 +16,7 @@ class AppRoutes {
   static const String forgotPasswordScreen = 'forgot_password';
   static const String changePasswordScreen = 'change_password';
   static const String dashboardScreen = 'dashboard';
+  static const String adminDashboardScreen = 'admin_dashboard';
   static const String historialScreen = 'historial';
   static const String adminUsersScreen = 'admin_users';
 
@@ -35,9 +37,15 @@ class AppRoutes {
         dashboardController: dController,
       ),
 
-      // 🟢 Modificación principal: Pasarle el aController al Dashboard
+      // Operador: dashboard con simulador
       dashboardScreen: (context) =>
           DashboardScreen(controller: dController, authController: aController),
+
+      // Administrador: dashboard de monitoreo (sin simulador)
+      adminDashboardScreen: (context) => AdminDashboardScreen(
+        controller: dController,
+        authController: aController,
+      ),
 
       historialScreen: (context) => HistorialScreen(controller: dController),
       adminUsersScreen: (context) =>
