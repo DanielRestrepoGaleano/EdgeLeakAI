@@ -237,24 +237,34 @@ class DashboardController extends ChangeNotifier {
     ultimaAlerta = null;
     notifyListeners();
 
-    final lectura = LecturaSensorModel(caudalLPM: flujo, timestamp: timestamp);
-    final respuestaIA = await _apiService.analizarPatronReal(lectura);
+    try {
+      final lectura = LecturaSensorModel(caudalLPM: flujo, timestamp: timestamp);
+      final respuestaIA = await _apiService.analizarPatronReal(lectura);
 
-    if (respuestaIA.veredicto != 'Error de Red / IA') {
-      await _dbService.insertarAlerta(respuestaIA);
+      if (respuestaIA.veredicto != 'Error de Red / IA') {
+        await _dbService.insertarAlerta(respuestaIA);
 
-      // Enviar correo de alerta si la IA confirma fuga crítica
-      if ((respuestaIA.veredicto == 'Fuga Detectada' ||
-              respuestaIA.severidad == 'Crítica') &&
-          correoUsuarioActual.isNotEmpty) {
-        await _emailService.enviarCorreoAlerta(correoUsuarioActual, respuestaIA);
+        // Enviar correo de alerta si la IA confirma fuga crítica
+        if ((respuestaIA.veredicto == 'Fuga Detectada' ||
+                respuestaIA.severidad == 'Crítica') &&
+            correoUsuarioActual.isNotEmpty) {
+          final enviado = await _emailService.enviarCorreoAlerta(
+              correoUsuarioActual, respuestaIA);
+          if (!enviado) {
+            debugPrint(
+                '[DashboardController] ⚠️ Correo de alerta no pudo enviarse a $correoUsuarioActual');
+          }
+        }
       }
-    }
 
-    ultimaAlerta = respuestaIA;
-    await inicializarHistorial();
-    iaProcesando = false;
-    notifyListeners();
+      ultimaAlerta = respuestaIA;
+      await inicializarHistorial();
+    } catch (e) {
+      debugPrint('[DashboardController] Error al llamar a Groq: $e');
+    } finally {
+      iaProcesando = false;
+      notifyListeners();
+    }
   }
 
   @override

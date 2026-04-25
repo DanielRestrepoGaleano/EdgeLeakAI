@@ -75,8 +75,10 @@ class LocalApiService {
     final method = request.method;
 
     request.response.headers.contentType = ContentType.json;
-    // Allow cross-origin requests (useful when testing from browser/Postman)
-    request.response.headers.set('Access-Control-Allow-Origin', '*');
+    // Allow requests from Postman / local browser dev tools.
+    // The ESP32 does not send CORS pre-flight requests; these headers are
+    // only useful for manual testing and are scoped to localhost.
+    request.response.headers.set('Access-Control-Allow-Origin', 'http://localhost');
     request.response.headers.set(
         'Access-Control-Allow-Headers', 'Content-Type, x-api-key');
 
