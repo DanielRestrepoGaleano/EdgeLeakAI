@@ -84,7 +84,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
 
                       if (usuario != null && context.mounted) {
-                          widget.dashboardController.setUsuarioLogueado(usuario.nombre);
+                          widget.dashboardController.setUsuarioLogueado(
+                              usuario.nombre, correo: usuario.correo);
                           // Inicializar historial al entrar
                           widget.dashboardController.inicializarHistorial();
 

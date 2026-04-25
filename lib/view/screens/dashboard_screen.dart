@@ -16,6 +16,26 @@ class DashboardScreen extends StatelessWidget {
     required this.authController,
   });
 
+  /// Mapea el estado de Sensor Fusion al modo visual del widget de olas.
+  String _waveMode(String estado) {
+    switch (estado) {
+      case 'Posible Fuga':
+        return 'Anomalia';
+      default:
+        return 'Normal';
+    }
+  }
+
+  /// Color del texto de caudal según el estado detectado por Sensor Fusion.
+  Color _caudalColor(String estado) {
+    switch (estado) {
+      case 'Posible Fuga':
+        return AppTheme.warningColor;
+      default:
+        return AppTheme.primaryColor;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -47,6 +67,9 @@ class DashboardScreen extends StatelessWidget {
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
+          final waveMode = _waveMode(controller.estadoActual);
+          final caudalColor = _caudalColor(controller.estadoActual);
+
           return Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -62,7 +85,7 @@ class DashboardScreen extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.bottomCenter,
                     children: [
-                      WaterWaveWidget(modo: controller.modoSimulacion),
+                      WaterWaveWidget(modo: waveMode),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 30.0),
                         child: Column(
@@ -90,13 +113,7 @@ class DashboardScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 48,
                                   fontWeight: FontWeight.bold,
-                                  color:
-                                      controller.modoSimulacion == 'Fuga'
-                                          ? AppTheme.criticalColor
-                                          : (controller.modoSimulacion ==
-                                                    'Anomalia'
-                                                ? AppTheme.warningColor
-                                                : AppTheme.primaryColor),
+                                  color: caudalColor,
                                 ),
                               ),
                             ),
@@ -110,61 +127,39 @@ class DashboardScreen extends StatelessWidget {
                 // ── Leyenda de umbrales ──────────────────────────────────
                 const SizedBox(height: 8),
                 _UmbralLegenda(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // ── Selector de simulación ───────────────────────────────
+                // ── Indicadores en tiempo real (ruido + estado) ──────────
                 Row(
                   children: [
-                    const Text(
-                      'Inyección de Estado:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: _SensorCard(
+                        label: 'Nivel de Ruido',
+                        value: '${controller.ruidoActual}',
+                        unit: 'ADC',
+                        icon: Icons.graphic_eq,
+                        color: controller.ruidoActual > 1500
+                            ? AppTheme.warningColor
+                            : AppTheme.normalColor,
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    Tooltip(
-                      message:
-                          'Selecciona el estado que quieres simular en el sensor.\n'
-                          'Normal: uso doméstico  |  Anomalía: flujo irregular  |  Fuga: tubería rota',
-                      child: const Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        color: Colors.grey,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _SensorCard(
+                        label: 'Estado Sensor Fusion',
+                        value: controller.estadoActual,
+                        unit: '',
+                        icon: controller.estadoActual == 'Posible Fuga'
+                            ? Icons.warning_amber
+                            : Icons.check_circle_outline,
+                        color: controller.estadoActual == 'Posible Fuga'
+                            ? AppTheme.warningColor
+                            : AppTheme.normalColor,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'Normal',
-                      label: Text('Normal'),
-                      icon: Icon(Icons.water_drop),
-                    ),
-                    ButtonSegment(
-                      value: 'Anomalia',
-                      label: Text('Anomalía'),
-                      icon: Icon(Icons.warning_amber),
-                    ),
-                    ButtonSegment(
-                      value: 'Fuga',
-                      label: Text('Fuga'),
-                      icon: Icon(Icons.error_outline),
-                    ),
-                  ],
-                  selected: {controller.modoSimulacion},
-                  onSelectionChanged: (Set<String> newSelection) =>
-                      controller.setModoSimulacion(newSelection.first),
-                  style: SegmentedButton.styleFrom(
-                    selectedForegroundColor: Colors.white,
-                    selectedBackgroundColor:
-                        controller.modoSimulacion == 'Fuga'
-                            ? AppTheme.criticalColor
-                            : (controller.modoSimulacion == 'Anomalia'
-                                  ? AppTheme.warningColor
-                                  : AppTheme.normalColor),
-                  ),
-                ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 16),
 
                 // ── Resultado de la IA ───────────────────────────────────
                 if (controller.iaProcesando)
@@ -230,28 +225,97 @@ class DashboardScreen extends StatelessWidget {
                   ),
 
                 const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: controller.iaProcesando
-                      ? null
-                      : () => controller.enviarPayloadIA(),
-                  icon: const Icon(Icons.psychology),
-                  label: const Text('EVALUAR CON INTELIGENCIA ARTIFICIAL'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black87,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    textStyle: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                // ── Leyenda de strikes activos ───────────────────────────
+                _StrikesIndicator(strikes: controller.strikesFuga),
                 const SizedBox(height: 5),
               ],
             ),
           );
         },
       ),
+    );
+  }
+}
+
+/// Tarjeta compacta para mostrar un valor de sensor en tiempo real.
+class _SensorCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final IconData icon;
+  final Color color;
+
+  const _SensorCard({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              unit.isNotEmpty ? '$value $unit' : value,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Indicador visual de la regla de los 3 Strikes.
+class _StrikesIndicator extends StatelessWidget {
+  final int strikes;
+
+  const _StrikesIndicator({required this.strikes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          'Strikes de Anomalía: ',
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        ...List.generate(3, (i) {
+          final active = i < strikes;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Icon(
+              Icons.bolt,
+              size: 20,
+              color: active ? AppTheme.warningColor : Colors.grey.shade300,
+            ),
+          );
+        }),
+        Text(
+          ' ($strikes/3)',
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      ],
     );
   }
 }
@@ -333,3 +397,4 @@ class _LegendaItem extends StatelessWidget {
     );
   }
 }
+

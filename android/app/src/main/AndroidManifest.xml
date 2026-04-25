@@ -1,8 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET permission is required for the embedded HTTP server (port 8080)
+         that receives sensor readings from the ESP32 over the local Wi-Fi network.
+         Without this, HttpServer.bind() throws a SocketException and the server
+         never starts, causing "connection refused" on the ESP32 side. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="edgeleak"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
