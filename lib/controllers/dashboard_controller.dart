@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../data/models/lectura_sensor_model.dart';
 import '../data/models/alerta_fuga_model.dart';
@@ -175,6 +176,9 @@ class DashboardController extends ChangeNotifier {
   // Sensor Fusion con regla de 3 Strikes (lecturas del ESP32)
   // ---------------------------------------------------------------------------
 
+  bool _esPosibleFuga(int ruido, double flujo) =>
+      ruido > _umbralRuido && flujo < _umbralFlujoFuga;
+
   Future<void> procesarLecturaSensor(int ruido, double flujo) async {
     final DateTime timestampLectura = DateTime.now();
 
@@ -182,16 +186,12 @@ class DashboardController extends ChangeNotifier {
     caudalActual = flujo;
 
     // 1. Sensor Fusion — determinar estado
-    final String estado;
-    if (ruido > _umbralRuido && flujo < _umbralFlujoFuga) {
-      estado = 'Posible Fuga';
-    } else {
-      estado = 'Uso Normal';
-    }
+    final String estado =
+        _esPosibleFuga(ruido, flujo) ? 'Posible Fuga' : 'Uso Normal';
     _estadoActual = estado;
 
     // 2. Regla de los 3 Strikes
-    if (ruido > _umbralRuido && flujo < _umbralFlujoFuga) {
+    if (_esPosibleFuga(ruido, flujo)) {
       strikesFuga++;
     } else {
       strikesFuga = 0;
@@ -199,7 +199,10 @@ class DashboardController extends ChangeNotifier {
 
     if (strikesFuga >= 3 && !iaProcesando) {
       strikesFuga = 0;
-      await _llamarGroqPorFuga(flujo, timestampLectura);
+      // Llamar a la IA en background; errores no deben bloquear la lectura
+      _llamarGroqPorFuga(flujo, timestampLectura).catchError((e) {
+        debugPrint('[DashboardController] Error al llamar a Groq: $e');
+      });
     }
 
     // 3. Guardar lectura cruda en BD

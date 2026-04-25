@@ -1,6 +1,6 @@
 /*
  * ============================================================
- *  EdgeLeak AI v2.0 — Firmware ESP32
+ *  EdgeLeak AI v2.1 — Firmware ESP32
  *  Sensores: KY-037 (Micrófono) + YF-S201 (Flujo de Agua)
  *  Plataforma: Arduino IDE con soporte ESP32
  * ============================================================

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -57,7 +58,7 @@ class EmailService {
       await send(message, smtpServer);
       return true;
     } catch (e) {
-      print('Error al enviar correo de alerta: $e');
+      debugPrint('Error al enviar correo de alerta: $e');
       return false;
     }
   }
@@ -104,7 +105,7 @@ class EmailService {
       await send(message, smtpServer);
       return true;
     } catch (e) {
-      print('Error al enviar correo de recuperación: $e');
+      debugPrint('Error al enviar correo de recuperación: $e');
       return false;
     }
   }
