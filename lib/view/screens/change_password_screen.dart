@@ -1,3 +1,6 @@
+import 'package:edgeleak/view/screens/admin_users_screen.dart';
+import 'package:edgeleak/view/screens/dashboard_screen.dart';
+import 'package:edgeleak/view/screens/historial_screen.dart';
 import 'package:flutter/material.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/dashboard_controller.dart';
@@ -7,7 +10,7 @@ import '../../config/routes/app_routes.dart';
 class ChangePasswordScreen extends StatefulWidget {
   final AuthController authController;
   final DashboardController dashboardController;
-  const ChangePasswordScreen({super.key, required this.authController, required this.dashboardController});
+  const ChangePasswordScreen({super.key, required this.authController, required this.dashboardController, required DashboardScreen Function(BuildContext context) dashboardScreen, required HistorialScreen Function(BuildContext context) historialScreen, required AdminUsersScreen Function(BuildContext context) adminUsersScreen});
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
