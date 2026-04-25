@@ -33,6 +33,11 @@ class AppRoutes {
       changePasswordScreen: (context) => ChangePasswordScreen(
         authController: aController,
         dashboardController: dController,
+        dashboardScreen: (context) =>
+            DashboardScreen(controller: dController, authController: aController),
+        historialScreen: (context) => HistorialScreen(controller: dController),
+        adminUsersScreen: (context) =>
+          AdminUsersScreen(authController: aController),
       ),
 
       // 🟢 Modificación principal: Pasarle el aController al Dashboard
