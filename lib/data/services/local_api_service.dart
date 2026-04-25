@@ -75,6 +75,17 @@ class LocalApiService {
     final method = request.method;
 
     request.response.headers.contentType = ContentType.json;
+    // Allow cross-origin requests (useful when testing from browser/Postman)
+    request.response.headers.set('Access-Control-Allow-Origin', '*');
+    request.response.headers.set(
+        'Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+
+    // Handle CORS pre-flight
+    if (method == 'OPTIONS') {
+      request.response.statusCode = HttpStatus.ok;
+      await request.response.close();
+      return;
+    }
 
     try {
       if (method == 'POST' && path == '/api/sensor') {
@@ -137,7 +148,14 @@ class LocalApiService {
         return;
       }
 
-      await _onProcesarLectura(dto.ruido, dto.flujo);
+      debugPrint(
+          '📡 LocalApiService → ruido=${dto.ruido}, flujo=${dto.flujo.toStringAsFixed(3)} L/min');
+
+      try {
+        await _onProcesarLectura(dto.ruido, dto.flujo);
+      } catch (e) {
+        debugPrint('❌ LocalApiService error en callback del controlador: $e');
+      }
 
       await _responder(request, HttpStatus.ok, {
         'status': 'ok',

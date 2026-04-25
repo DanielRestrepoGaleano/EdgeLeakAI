@@ -184,6 +184,7 @@ class DashboardController extends ChangeNotifier {
 
     ruidoActual = ruido;
     caudalActual = flujo;
+    conectado = true; // marca el nodo como activo al recibir datos reales
 
     // 1. Sensor Fusion — determinar estado
     final String estado =
@@ -197,6 +198,10 @@ class DashboardController extends ChangeNotifier {
       strikesFuga = 0;
     }
 
+    // ⚡ Notificar INMEDIATAMENTE para que la UI refleje los valores del sensor
+    // en tiempo real, sin esperar operaciones de BD ni llamadas a la IA.
+    notifyListeners();
+
     if (strikesFuga >= 3 && !iaProcesando) {
       strikesFuga = 0;
       // Llamar a la IA en background; errores no deben bloquear la lectura
@@ -205,7 +210,7 @@ class DashboardController extends ChangeNotifier {
       });
     }
 
-    // 3. Guardar lectura cruda en BD
+    // 3. Guardar lectura cruda en BD (async, no bloquea la UI)
     await _dbService.insertarLecturaRaw(
       LecturaRawModel(
         ruido: ruido,
@@ -225,8 +230,6 @@ class DashboardController extends ChangeNotifier {
     if (_bufferLecturas.length > 10) {
       _bufferLecturas.removeAt(0);
     }
-
-    notifyListeners();
   }
 
   Future<void> _llamarGroqPorFuga(double flujo, DateTime timestamp) async {
