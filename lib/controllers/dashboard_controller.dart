@@ -1,5 +1,3 @@
-import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/models/lectura_sensor_model.dart';
 import '../data/models/alerta_fuga_model.dart';
@@ -7,22 +5,24 @@ import '../data/models/lectura_raw_model.dart';
 import '../data/services/groq_api_service.dart';
 import '../data/services/database_service.dart';
 import '../data/services/local_api_service.dart';
+import '../data/services/email_service.dart';
 
 class DashboardController extends ChangeNotifier {
   final GroqApiService _apiService = GroqApiService();
   final DatabaseService _dbService = DatabaseService();
+  final EmailService _emailService = EmailService();
   late final LocalApiService _localApiService;
 
   double caudalActual = 0.0;
+  int ruidoActual = 0;
   bool conectado = true;
   bool iaProcesando = false;
-  String modoSimulacion = 'Normal';
 
   String usuarioLogueado = 'Usuario';
+  String correoUsuarioActual = '';
 
   AlertaFugaModel? ultimaAlerta;
   List<AlertaFugaModel> historialEventos = [];
-  Timer? _simuladorTimer;
 
   // --- Filtros del historial ---
   String? filtroSeveridad;
@@ -44,16 +44,11 @@ class DashboardController extends ChangeNotifier {
   List<Map<String, dynamic>> get bufferLecturas =>
       List.unmodifiable(_bufferLecturas);
 
-  // --- Rate-limit para Groq ---
-  int _contadorPosibleFuga = 0;
-  DateTime? _lastGroqEvaluation;
-
-  static const int _umbralFugasConsecutivas = 3;
-  static const int _cooldownMinutos = 3;
+  // --- Regla de los 3 Strikes ---
+  int strikesFuga = 0;
 
   // Umbrales de Sensor Fusion
   static const int _umbralRuido = 1500;
-  static const double _umbralFlujoNormal = 0.5;
   static const double _umbralFlujoFuga = 0.1;
 
   DashboardController() {
@@ -63,12 +58,11 @@ class DashboardController extends ChangeNotifier {
       dbService: _dbService,
     );
     _localApiService.iniciar();
-    _generarCaudalInmediato();
-    iniciarSimuladorDinamico();
   }
 
-  void setUsuarioLogueado(String nombre) {
+  void setUsuarioLogueado(String nombre, {String correo = ''}) {
     usuarioLogueado = nombre;
+    correoUsuarioActual = correo;
     notifyListeners();
   }
 
@@ -178,78 +172,37 @@ class DashboardController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Simulador
-  // ---------------------------------------------------------------------------
-
-  void setModoSimulacion(String modo) {
-    modoSimulacion = modo;
-    ultimaAlerta = null;
-    _generarCaudalInmediato();
-    iniciarSimuladorDinamico();
-  }
-
-  void _generarCaudalInmediato() {
-    if (modoSimulacion == 'Normal') {
-      caudalActual = (Random().nextDouble() * 0.4) + 0.1;
-    } else if (modoSimulacion == 'Anomalia') {
-      caudalActual = (Random().nextDouble() * 1.3) + 1.2;
-    } else if (modoSimulacion == 'Fuga') {
-      caudalActual = (Random().nextDouble() * 3.0) + 6.0;
-    }
-    notifyListeners();
-  }
-
-  void iniciarSimuladorDinamico() {
-    _simuladorTimer?.cancel();
-    _simuladorTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (!iaProcesando) {
-        _generarCaudalInmediato();
-      }
-    });
-  }
-
-  Future<void> enviarPayloadIA() async {
-    iaProcesando = true;
-    ultimaAlerta = null;
-    notifyListeners();
-
-    final lecturaActual = LecturaSensorModel(
-      caudalLPM: caudalActual,
-      timestamp: DateTime.now(),
-    );
-    final respuestaIA = await _apiService.analizarPatronReal(lecturaActual);
-
-    if (respuestaIA.veredicto != 'Error de Red / IA') {
-      await _dbService.insertarAlerta(respuestaIA);
-    }
-
-    ultimaAlerta = respuestaIA;
-    await inicializarHistorial();
-    iaProcesando = false;
-    notifyListeners();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sensor Fusion (lecturas del ESP32)
+  // Sensor Fusion con regla de 3 Strikes (lecturas del ESP32)
   // ---------------------------------------------------------------------------
 
   Future<void> procesarLecturaSensor(int ruido, double flujo) async {
     final DateTime timestampLectura = DateTime.now();
 
-    // 1. Sensor Fusion
-    final String estado;
-    if (ruido > _umbralRuido && flujo > _umbralFlujoNormal) {
-      estado = 'Uso Normal';
-    } else if (ruido > _umbralRuido && flujo < _umbralFlujoFuga) {
-      estado = 'Posible Fuga';
-    } else {
-      estado = 'Sin Clasificar';
-    }
-
-    _estadoActual = estado;
+    ruidoActual = ruido;
     caudalActual = flujo;
 
-    // 2. Guardar lectura cruda en BD
+    // 1. Sensor Fusion — determinar estado
+    final String estado;
+    if (ruido > _umbralRuido && flujo < _umbralFlujoFuga) {
+      estado = 'Posible Fuga';
+    } else {
+      estado = 'Uso Normal';
+    }
+    _estadoActual = estado;
+
+    // 2. Regla de los 3 Strikes
+    if (ruido > _umbralRuido && flujo < _umbralFlujoFuga) {
+      strikesFuga++;
+    } else {
+      strikesFuga = 0;
+    }
+
+    if (strikesFuga >= 3 && !iaProcesando) {
+      strikesFuga = 0;
+      await _llamarGroqPorFuga(flujo, timestampLectura);
+    }
+
+    // 3. Guardar lectura cruda en BD
     await _dbService.insertarLecturaRaw(
       LecturaRawModel(
         ruido: ruido,
@@ -259,7 +212,7 @@ class DashboardController extends ChangeNotifier {
       ),
     );
 
-    // 3. Actualizar buffer en memoria (máximo 10 lecturas)
+    // 4. Actualizar buffer en memoria (máximo 10 lecturas)
     _bufferLecturas.add({
       'ruido': ruido,
       'flujo': flujo,
@@ -268,26 +221,6 @@ class DashboardController extends ChangeNotifier {
     });
     if (_bufferLecturas.length > 10) {
       _bufferLecturas.removeAt(0);
-    }
-
-    // 4. Rate-limit para Groq
-    if (estado == 'Posible Fuga') {
-      _contadorPosibleFuga++;
-    } else {
-      _contadorPosibleFuga = 0;
-    }
-
-    if (_contadorPosibleFuga >= _umbralFugasConsecutivas && !iaProcesando) {
-      final ahora = DateTime.now();
-      final cooldownExpirado =
-          _lastGroqEvaluation == null ||
-          ahora.difference(_lastGroqEvaluation!).inMinutes >= _cooldownMinutos;
-
-      if (cooldownExpirado) {
-        _lastGroqEvaluation = ahora;
-        _contadorPosibleFuga = 0;
-        await _llamarGroqPorFuga(flujo, timestampLectura);
-      }
     }
 
     notifyListeners();
@@ -303,6 +236,13 @@ class DashboardController extends ChangeNotifier {
 
     if (respuestaIA.veredicto != 'Error de Red / IA') {
       await _dbService.insertarAlerta(respuestaIA);
+
+      // Enviar correo de alerta si la IA confirma fuga crítica
+      if ((respuestaIA.veredicto == 'Fuga Detectada' ||
+              respuestaIA.severidad == 'Crítica') &&
+          correoUsuarioActual.isNotEmpty) {
+        await _emailService.enviarCorreoAlerta(correoUsuarioActual, respuestaIA);
+      }
     }
 
     ultimaAlerta = respuestaIA;
@@ -314,7 +254,7 @@ class DashboardController extends ChangeNotifier {
   @override
   void dispose() {
     _localApiService.detener();
-    _simuladorTimer?.cancel();
     super.dispose();
   }
 }
+

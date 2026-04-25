@@ -1,0 +1,131 @@
+/*
+ * ============================================================
+ *  EdgeLeak AI v2.0 — Firmware ESP32
+ *  Sensores: KY-037 (Micrófono) + YF-S201 (Flujo de Agua)
+ *  Plataforma: Arduino IDE con soporte ESP32
+ * ============================================================
+ *  INSTRUCCIONES DE INSTALACIÓN:
+ *  1. En Arduino IDE, instalar librería "ArduinoJson" (Board: ESP32 Dev Module).
+ *  2. Sustituir <SSID_WIFI> y <PASSWORD_WIFI> con los datos de tu red.
+ *  3. Sustituir <IP_CELULAR> con la IP local del teléfono que ejecuta la app Flutter.
+ *     (Puedes verla en Ajustes > Wi-Fi > Detalles de la red).
+ *  4. Cargar el sketch al ESP32.
+ * ============================================================
+ */
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+// ── Configuración Wi-Fi ──────────────────────────────────────────────────────
+const char* SSID     = "<SSID_WIFI>";
+const char* PASSWORD = "<PASSWORD_WIFI>";
+
+// ── Endpoint del servidor Flutter ───────────────────────────────────────────
+const char* SERVER_URL = "http://<IP_CELULAR>:8080/api/sensor";
+const char* API_KEY    = "edgeleak-share-2024";
+
+// ── Pines de sensores ────────────────────────────────────────────────────────
+#define PIN_MICROFONO  34   // KY-037 — Salida analógica (ADC)
+#define PIN_FLUJO      32   // YF-S201 — Salida digital de pulsos
+
+// ── Variables de flujo ───────────────────────────────────────────────────────
+volatile uint32_t contadorPulsos = 0;
+float             litrosPorMinuto = 0.0;
+
+// Factor de calibración del YF-S201:
+// Frecuencia (Hz) = pulsos/segundo; flujo (L/min) = frecuencia / 7.5
+// Para un intervalo de 5 s: L/min = (pulsos / 5) / 7.5 = pulsos / 37.5
+// Equivalente a dividir por el factor 450 / 60 = 7.5 → guardamos 450.0 para
+// calcular con el periodo completo de muestreo en segundos.
+const float FACTOR_CALIBRACION = 450.0;
+
+// Intervalo de envío (ms)
+const unsigned long INTERVALO_MS = 5000;
+unsigned long ultimoEnvio = 0;
+
+// ── ISR: Interrupción por flanco de bajada en el sensor de flujo ─────────────
+void IRAM_ATTR onPulsoFlujo() {
+  contadorPulsos++;
+}
+
+// ── setup ────────────────────────────────────────────────────────────────────
+void setup() {
+  Serial.begin(115200);
+
+  // Configurar pines
+  pinMode(PIN_MICROFONO, INPUT);           // Lectura analógica ADC
+  pinMode(PIN_FLUJO,     INPUT_PULLUP);    // Señal digital del YF-S201
+
+  // Adjuntar interrupción al sensor de flujo (flanco FALLING)
+  attachInterrupt(digitalPinToInterrupt(PIN_FLUJO), onPulsoFlujo, FALLING);
+
+  // Conectar a Wi-Fi
+  WiFi.begin(SSID, PASSWORD);
+  Serial.print("Conectando a Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWi-Fi conectado. IP: " + WiFi.localIP().toString());
+
+  ultimoEnvio = millis();
+}
+
+// ── loop ─────────────────────────────────────────────────────────────────────
+void loop() {
+  unsigned long ahora = millis();
+
+  if (ahora - ultimoEnvio >= INTERVALO_MS) {
+    // ── 1. Leer micrófono KY-037 (promedio de 50 muestras) ────────────────
+    long sumaRuido = 0;
+    for (int i = 0; i < 50; i++) {
+      sumaRuido += analogRead(PIN_MICROFONO);
+      delayMicroseconds(200);
+    }
+    int ruidoPromedio = (int)(sumaRuido / 50);
+
+    // ── 2. Calcular caudal YF-S201 ─────────────────────────────────────────
+    // Deshabilitar interrupciones momentáneamente para leer el contador
+    noInterrupts();
+    uint32_t pulsos = contadorPulsos;
+    contadorPulsos  = 0;
+    interrupts();
+
+    // L/min = pulsos / (FACTOR_CALIBRACION * intervalo_en_segundos)
+    float intervaloSegundos = INTERVALO_MS / 1000.0;
+    litrosPorMinuto = (float)pulsos / (FACTOR_CALIBRACION / 60.0 * intervaloSegundos);
+
+    // ── 3. Mostrar en monitor serial ───────────────────────────────────────
+    Serial.printf("[EdgeLeak] Ruido ADC: %d | Flujo: %.3f L/min\n",
+                  ruidoPromedio, litrosPorMinuto);
+
+    // ── 4. Enviar HTTP POST al servidor Flutter ────────────────────────────
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(SERVER_URL);
+      http.addHeader("Content-Type",  "application/json");
+      http.addHeader("x-api-key",     API_KEY);
+
+      // Serializar JSON
+      StaticJsonDocument<128> doc;
+      doc["ruido"] = ruidoPromedio;
+      doc["flujo"] = litrosPorMinuto;
+      String payload;
+      serializeJson(doc, payload);
+
+      int httpCode = http.POST(payload);
+      if (httpCode > 0) {
+        Serial.printf("[HTTP] Respuesta: %d\n", httpCode);
+      } else {
+        Serial.printf("[HTTP] Error: %s\n", http.errorToString(httpCode).c_str());
+      }
+      http.end();
+    } else {
+      Serial.println("[Wi-Fi] Sin conexión, reintentando...");
+      WiFi.reconnect();
+    }
+
+    ultimoEnvio = ahora;
+  }
+}
