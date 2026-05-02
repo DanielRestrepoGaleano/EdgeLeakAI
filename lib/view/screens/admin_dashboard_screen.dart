@@ -85,8 +85,8 @@ class AdminDashboardScreen extends StatelessWidget {
                     Expanded(
                       child: _StatusCard(
                         label: 'Sensor Fusion',
-                        value: controller.estadoActual,
-                        color: _colorPorEstado(controller.estadoActual),
+                        value: controller.estadoActual.etiqueta,
+                        color: _colorPorEstado(controller.estadoActual.etiqueta),
                         icon: Icons.sensors,
                       ),
                     ),
@@ -305,7 +305,7 @@ class _StatusCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF161B22),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,7 +349,7 @@ class _ContextCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF161B22),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -617,7 +617,7 @@ class _BufferTable extends StatelessWidget {
                   ),
                   Expanded(
                     child: Text(
-                      '${(lectura['flujo'] as num).toStringAsFixed(2)}',
+                      (lectura['flujo'] as num).toStringAsFixed(2),
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
@@ -678,9 +678,9 @@ class _AlertaBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -737,9 +737,9 @@ class _QuickActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
