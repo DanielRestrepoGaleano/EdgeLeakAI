@@ -31,10 +31,10 @@ class BaselineService {
   static const int _resumenesPorMes = 5;
 
   /// Desviación mínima de flujo (L/min) para considerar una lectura anómala.
-  static const double _umbralDesviacioFlujo = 0.30;
+  static const double _umbralDesviacionFlujo = 0.30;
 
   /// Desviación mínima de ruido (ADC) para considerar una lectura anómala.
-  static const double _umbralDesviacioRuido = 500.0;
+  static const double _umbralDesviacionRuido = 500.0;
 
   /// Período de ejecución del job de agregación en segundo plano.
   static const Duration _intervaloAgregacion = Duration(hours: 24);
@@ -141,7 +141,7 @@ class BaselineService {
     final devRuido = (ruido - ruidoBase).abs();
 
     final desvia =
-        devFlujo > _umbralDesviacioFlujo || devRuido > _umbralDesviacioRuido;
+        devFlujo > _umbralDesviacionFlujo || devRuido > _umbralDesviacionRuido;
 
     if (desvia) {
       debugPrint(
