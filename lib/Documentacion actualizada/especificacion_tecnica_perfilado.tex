@@ -1,0 +1,581 @@
+\documentclass[12pt,a4paper]{article}
+
+% ─── Paquetes ─────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{parskip}
+
+% ─── Configuración de Hyperref ──────────────────────────────────────────────
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    urlcolor=blue!60!black,
+    citecolor=green!40!black,
+    pdftitle={Especificación Técnica: Lógica de Perfilado y Detección Reactiva en EdgeLeak AI},
+    pdfauthor={EdgeLeak AI — Proyecto PICUR Uniremington},
+    pdfsubject={Documentación de Arquitectura IoT},
+    pdfkeywords={IoT, Flutter, ESP32, detección de fugas, machine learning, SQLite},
+}
+
+% ─── Configuración de Listings ──────────────────────────────────────────────
+\definecolor{codegreen}{rgb}{0,0.5,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.1,0.2,0.7}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.97}
+
+\lstdefinestyle{dartstyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{codeblue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codegreen!60!black},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    rulecolor=\color{gray!30},
+}
+\lstset{style=dartstyle}
+
+% ─── Encabezados y Pies de Página ──────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small EdgeLeak AI — Documentación Técnica v2.0}
+\fancyhead[R]{\small Proyecto PICUR Uniremington}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ─── Configuración de Secciones ─────────────────────────────────────────────
+\titleformat{\section}[block]{\large\bfseries\color{blue!70!black}}{\thesection.}{0.5em}{}[\titlerule]
+\titleformat{\subsection}[block]{\normalsize\bfseries\color{blue!50!black}}{\thesubsection.}{0.5em}{}
+\titleformat{\subsubsection}[block]{\normalsize\itshape}{\thesubsubsection.}{0.5em}{}
+
+% ─── Colores del sistema ─────────────────────────────────────────────────────
+\definecolor{estadoNormal}{RGB}{76,175,80}
+\definecolor{estadoAnomalia}{RGB}{255,193,7}
+\definecolor{estadoFuga}{RGB}{244,67,54}
+
+% ─── Documento ───────────────────────────────────────────────────────────────
+
+\begin{document}
+
+% ── Portada ──────────────────────────────────────────────────────────────────
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\Huge\bfseries EdgeLeak AI\par}
+    \vspace{0.5cm}
+    {\Large\itshape Especificación Técnica\par}
+    \vspace{1cm}
+    \rule{\linewidth}{0.5pt}
+    \vspace{0.5cm}
+    {\large\bfseries Lógica de Perfilado de Usuario y Detección\\[4pt]
+    Reactiva de Microfugas\par}
+    \vspace{0.5cm}
+    \rule{\linewidth}{0.5pt}
+    \vspace{2cm}
+
+    \begin{tabularx}{0.85\textwidth}{lX}
+        \toprule
+        \textbf{Proyecto} & PICUR — Uniremington \\
+        \textbf{Versión del documento} & 2.0 \\
+        \textbf{Clasificación} & Documento técnico de arquitectura \\
+        \textbf{Sistema objetivo} & EdgeLeak AI — Detección de microfugas en lavaplatos \\
+        \textbf{Hardware} & ESP32 + YF-S201 + KY-037 \\
+        \textbf{Plataforma de software} & Flutter 3.x / Dart 3.x / SQLite \\
+        \textbf{Servicio de IA} & Groq API (Llama 3.3 70B) \\
+        \bottomrule
+    \end{tabularx}
+
+    \vfill
+    {\small Sistema de Detección de Microfugas para Lavaplatos Manuales\\
+    Arquitectura Edge-to-Cloud con Inteligencia Artificial Contextual\par}
+\end{titlepage}
+
+% ── Tabla de Contenido ───────────────────────────────────────────────────────
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introducción y Alcance}
+% ─────────────────────────────────────────────────────────────────────────────
+
+El sistema \textbf{EdgeLeak AI} es una solución de Internet de las Cosas (IoT) orientada a la detección de microfugas en lavaplatos manuales domésticos e industriales. Su arquitectura combina procesamiento en el borde (\textit{edge computing}) con análisis contextual en la nube mediante la API de Groq, siguiendo el paradigma \textit{Edge-to-Cloud}.
+
+El presente documento especifica formalmente la lógica de perfilado de usuario implementada en la versión 2.0, incluyendo:
+
+\begin{itemize}[noitemsep]
+    \item La máquina de estados de tres niveles (\texttt{Normal}, \texttt{Anomalía}, \texttt{Fuga}).
+    \item El filtro digital de ruido implementado en el servicio \texttt{RuidoFilterService}.
+    \item El módulo de perfilado adaptativo \texttt{BaselineService} con agregación de datos jerárquica.
+    \item El modelo de invocación reactiva (event-driven) de la IA de Groq.
+    \item El esquema de datos de la base de datos local SQLite versión 5.
+\end{itemize}
+
+\subsection{Objetivos del Sistema}
+
+\begin{enumerate}[noitemsep]
+    \item Detectar con exactitud tres niveles operacionales del sistema hídrico monitoreado.
+    \item Distinguir entre impactos acústicos aislados y patrones rítmicos de goteo.
+    \item Aprender el comportamiento normal del usuario en bloques de 3 a 5 días (\textit{baseline}).
+    \item Invocar la IA de Groq exclusivamente ante eventos de desviación significativa del baseline.
+    \item Agregar los datos crudos en resúmenes jerárquicos para optimizar el almacenamiento SQLite.
+    \item Notificar al usuario mediante correo electrónico ante cualquier cambio de estado no-normal.
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Arquitectura Edge-to-Cloud}
+% ─────────────────────────────────────────────────────────────────────────────
+
+El diseño arquitectónico de EdgeLeak AI sigue tres capas funcionales:
+
+\subsection{Capa Edge (ESP32 + Sensores)}
+
+El microcontrolador ESP32 recopila datos de dos sensores cada 5 segundos y los transmite al servidor HTTP local de la aplicación Flutter:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{YF-S201}: Sensor de flujo de agua. Genera pulsos proporcionales al caudal. La unidad de medida procesada es litros por minuto (L/min).
+    \item \textbf{KY-037}: Micrófono de alta sensibilidad. Entrega un valor analógico-digital (ADC) proporcional al nivel de presión acústica ambiente.
+\end{itemize}
+
+La comunicación se realiza mediante peticiones HTTP POST al endpoint \texttt{/api/sensor} del servidor local (puerto 8080), protegido mediante cabecera \texttt{x-api-key}.
+
+\subsection{Capa de Procesamiento Local (Flutter / Dart)}
+
+La aplicación Flutter ejecuta el procesamiento principal en el hilo de la interfaz de usuario (UI thread) con operaciones asíncronas que no bloquean la renderización:
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Recepción}: \texttt{LocalApiService} recibe y valida la petición del ESP32.
+    \item \textbf{Clasificación}: \texttt{DashboardController} aplica la máquina de estados de 3 niveles.
+    \item \textbf{Filtrado de ruido}: \texttt{RuidoFilterService} distingue impactos aislados de patrones de goteo.
+    \item \textbf{Detección de desviación}: \texttt{BaselineService} compara contra el perfil aprendido.
+    \item \textbf{Persistencia}: \texttt{DatabaseService} almacena lecturas crudas y agrega en resúmenes.
+    \item \textbf{Notificación}: \texttt{EmailService} envía alerta al correo del usuario registrado.
+\end{enumerate}
+
+\subsection{Capa Cloud (Groq API — Llama 3.3 70B)}
+
+La IA de Groq actúa como árbitro final de clasificación y es invocada de forma reactiva. El payload incluye la lectura anómala actual más el contexto histórico del usuario (resúmenes de 5 días y el historial mensual más reciente). La respuesta determina el veredicto definitivo entre los tres estados canónicos del sistema.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Máquina de Estados de Tres Niveles}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Definición Formal}
+
+El estado del sistema se representa mediante la enumeración \texttt{EstadoSensor}, que define tres valores canónicos mutuamente excluyentes:
+
+\begin{center}
+\begin{tabularx}{0.9\textwidth}{>{\bfseries}lXX}
+    \toprule
+    \textbf{Estado} & \textbf{Condición de activación} & \textbf{Acción del sistema} \\
+    \midrule
+    \textcolor{estadoNormal}{Normal} &
+        Flujo $\leq 0{,}5$ L/min \textit{y} sin patrón de goteo detectado por el filtro de ruido. &
+        Monitoreo pasivo. Sin notificaciones. \\
+    \addlinespace
+    \textcolor{estadoAnomalia}{Anomalía} &
+        Flujo $\in (0{,}5; 5{,}0]$ L/min, \textit{o} patrón de goteo rítmico detectado por el filtro, \textit{o} lógica nocturna activa (flujo = 0 + ruido constante $>$ base durante 0:00--6:00). &
+        Alerta inmediata por correo. Invocación reactiva de la IA tras 3 strikes. \\
+    \addlinespace
+    \textcolor{estadoFuga}{Fuga} &
+        Flujo $> 5{,}0$ L/min (umbral crítico de caudal activo). &
+        Alerta crítica inmediata por correo. Invocación directa de la IA sin esperar strikes. \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Tabla de condiciones de transición de la máquina de estados.}
+\end{center}
+
+\subsection{Jerarquía de Prioridad}
+
+La clasificación respeta una jerarquía estricta de evaluación secuencial:
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Fuga} (prioridad máxima): Evaluada primero. Si el caudal supera 5,0 L/min, el estado se establece como \texttt{Fuga} sin importar el nivel de ruido.
+    \item \textbf{Anomalía}: Evaluada si no se cumplió la condición de Fuga. Requiere flujo intermedio \textit{o} patrón de goteo confirmado por \texttt{RuidoFilterService}.
+    \item \textbf{Normal} (prioridad mínima): Estado por defecto cuando ninguna de las condiciones anteriores se cumple.
+\end{enumerate}
+
+\subsection{Reactividad de la Interfaz de Usuario}
+
+La UI reacciona de forma síncrona al cambio de estado gracias al patrón \texttt{ChangeNotifier} de Flutter. La actualización visual es inmediata (antes de las operaciones de base de datos o la llamada a la IA):
+
+\begin{center}
+\begin{tabularx}{0.88\textwidth}{>{\bfseries}lXXX}
+    \toprule
+    \textbf{Estado} & \textbf{Color dominante} & \textbf{Modo de olas} & \textbf{Velocidad de animación} \\
+    \midrule
+    Normal   & Azul (\texttt{\#2196F3}) & Normal  & 2000 ms/ciclo \\
+    Anomalía & Amarillo (\texttt{\#FFC107}) & Anomalia & 1000 ms/ciclo \\
+    Fuga     & Rojo (\texttt{\#F44336})  & Fuga    & 700 ms/ciclo \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Mapeado de estados a parámetros visuales de la UI.}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Filtro Digital del Sensor de Ruido (KY-037)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Problema Técnico}
+
+El sensor KY-037 es susceptible a falsas alarmas generadas por impactos mecánicos aislados (por ejemplo, la caída de un utensilio metálico), los cuales producen picos de amplitud ADC similares o superiores a los patrones de goteo real. Sin un mecanismo de filtrado, cada impacto aislado clasificaría erróneamente el sistema como \texttt{Anomalía}.
+
+\subsection{Algoritmo de Ventana Deslizante}
+
+El servicio \texttt{RuidoFilterService} implementa un filtro de ventana deslizante temporal con las siguientes características:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Ventana máxima}: 12 muestras o 60 segundos (lo que se alcance primero).
+    \item \textbf{Criterio de patrón rítmico}: Al menos 3 muestras dentro de la ventana con valor ADC superior al umbral de ruido significativo (\texttt{\_umbralRuido = 1500 ADC}).
+    \item \textbf{Criterio de impacto aislado}: Exactamente 1 ó 2 muestras sobre el umbral, rodeadas de muestras en silencio.
+\end{itemize}
+
+El resultado se devuelve como un valor de la enumeración \texttt{ResultadoRuido}:
+
+\begin{center}
+\begin{tabularx}{0.88\textwidth}{>{\ttfamily}lX}
+    \toprule
+    \textbf{Valor} & \textbf{Semántica} \\
+    \midrule
+    silencio       & Ninguna muestra sobre el umbral. Sin acción. \\
+    impactoAislado & Pico único. Se ignora como posible fuga. \\
+    patronGoteo    & Patrón rítmico sostenido. Clasifica como \texttt{Anomalía}. \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Valores de salida de \texttt{RuidoFilterService.clasificar()}.}
+\end{center}
+
+\subsection{Lógica Nocturna}
+
+La lógica nocturna cubre el escenario de goteo en la boquilla del lavaplatos durante horas de inactividad (0:00--6:00 a.m.), donde el sensor de flujo no registra caudal porque el goteo no es suficiente para activar el contador del YF-S201.
+
+\textbf{Condiciones de activación simultáneas}:
+\begin{enumerate}[noitemsep]
+    \item Hora del sistema comprendida en el intervalo $[0, 6)$.
+    \item Flujo reportado por el ESP32 igual a 0,0 L/min.
+    \item Promedio del nivel de ruido en la ventana actual superior al umbral de silencio base (\texttt{\_umbralSilencioBase = 800 ADC}).
+    \item Mínimo 3 muestras presentes en la ventana (validez estadística).
+\end{enumerate}
+
+Si todas las condiciones se satisfacen simultáneamente, el servicio devuelve \texttt{ResultadoRuido.patronGoteo}, lo que eleva el estado del sistema a \texttt{Anomalía}.
+
+\subsection{Tabla de Umbrales de Calibración}
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{lXX>{\ttfamily}l}
+    \toprule
+    \textbf{Parámetro} & \textbf{Descripción} & \textbf{Criterio técnico} & \textbf{Valor por defecto} \\
+    \midrule
+    Umbral de ruido significativo &
+        Nivel ADC mínimo para considerar actividad acústica relevante. &
+        Calibrado sobre el nivel de ruido de flujo normal activo. &
+        1500 \\
+    \addlinespace
+    Umbral de silencio base &
+        Nivel ADC máximo durante períodos sin actividad acústica. &
+        Medición en ambiente sin agua durante la noche. &
+        800 \\
+    \addlinespace
+    Mínimo de muestras de goteo &
+        Cantidad mínima de muestras sobre el umbral para confirmar patrón rítmico. &
+        Evita falsas alarmas por impactos dobles casuales. &
+        3 \\
+    \addlinespace
+    Tamaño de ventana (muestras) &
+        Capacidad máxima del buffer circular. &
+        Cubre aproximadamente 1 minuto a 5 s/lectura. &
+        12 \\
+    \addlinespace
+    Duración de ventana temporal &
+        Tiempo máximo de antigüedad de una muestra para permanecer en la ventana. &
+        Las muestras antiguas no contribuyen al análisis de patrón actual. &
+        60 s \\
+    \addlinespace
+    Hora de inicio nocturno &
+        Inicio del período de lógica nocturna (hora del dispositivo). &
+        Horas de mínima actividad del usuario. &
+        0:00 \\
+    \addlinespace
+    Hora de fin nocturno &
+        Fin del período de lógica nocturna (exclusive). &
+        A partir de las 6:00, el usuario puede comenzar a usar el lavaplatos. &
+        6:00 \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Tabla de Umbrales de Calibración del Filtro de Ruido KY-037.}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Perfilado de Usuario y Gestión del Baseline}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Descripción del Baseline}
+
+El \textit{baseline} (línea base) representa el perfil estadístico del comportamiento hídrico y acústico normal del usuario, construido a partir de las lecturas crudas almacenadas en la tabla \texttt{lecturas\_raw} de los últimos \texttt{\_diasBaseline = 5} días.
+
+El baseline se segmenta en dos bloques horarios para capturar la diferencia natural entre el uso diurno y el ambiente nocturno:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Período diurno}: 6:00--22:00. El usuario realiza usos activos del lavaplatos.
+    \item \textbf{Período nocturno}: 22:00--6:00. Silencio esperado; solo ruido ambiental de fondo.
+\end{itemize}
+
+El \texttt{BaselineService} calcula el promedio de flujo y ruido de cada período por separado. Al recibir una nueva lectura, selecciona el período correspondiente a la hora actual para comparar.
+
+\subsection{Proceso de Construcción}
+
+El baseline se reconstruye automáticamente:
+\begin{itemize}[noitemsep]
+    \item Al iniciar la aplicación.
+    \item Al cambiar de usuario (llamada explícita a \texttt{reconstruirBaseline()}).
+    \item Tras cada ciclo de agregación de 24 horas.
+\end{itemize}
+
+Se requiere un mínimo de 30 lecturas crudas para que el baseline sea estadísticamente válido. Con datos insuficientes, el módulo de detección de desviación retorna \texttt{true} de forma conservadora (se escala el procesamiento al modo reactivo completo).
+
+\subsection{Detección de Desviación Significativa}
+
+La función \texttt{esDesviacionSignificativa(ruido, flujo)} compara la lectura actual contra los promedios del baseline del período activo:
+
+\begin{equation}
+    \text{desvíaFlujo} = |flujo_{\text{actual}} - \overline{flujo}_{\text{baseline}}| > \Delta F_{\text{umbral}}
+\end{equation}
+\begin{equation}
+    \text{desvíaRuido} = |ruido_{\text{actual}} - \overline{ruido}_{\text{baseline}}| > \Delta R_{\text{umbral}}
+\end{equation}
+\begin{equation}
+    \text{esDesviación} = \text{desvíaFlujo} \lor \text{desvíaRuido}
+\end{equation}
+
+Donde $\Delta F_{\text{umbral}} = 0{,}30$ L/min y $\Delta R_{\text{umbral}} = 500$ ADC son los umbrales de desviación mínimos.
+
+Solo cuando \texttt{esDesviación = true} \textit{y} el contador de strikes alcanza el umbral, se invoca la API de Groq, eliminando el polling innecesario.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Modelo de Datos y Agregación Jerárquica (SQLite v5)}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Esquema de Base de Datos}
+
+La base de datos local \texttt{edgeleak\_v5.db} (versión 5) contiene cinco tablas:
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{lX}
+    \toprule
+    \textbf{Tabla} & \textbf{Propósito} \\
+    \midrule
+    \texttt{usuarios}            & Registro de cuentas de usuario con roles (operador/administrador). \\
+    \texttt{historial}           & Alertas confirmadas por la IA, con veredicto, severidad y mensaje. \\
+    \texttt{lecturas\_raw}       & Lecturas crudas individuales del ESP32 (ruido ADC + flujo L/min). \\
+    \texttt{lecturas\_resumen\_5d} & Resúmenes agregados de bloques de 5 días de lecturas crudas. \\
+    \texttt{historial\_mensual}  & Consolidación de múltiples resúmenes de 5 días en un registro mensual. \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Tablas de la base de datos \texttt{edgeleak\_v5.db}.}
+\end{center}
+
+\subsection{Modelo de Datos de Agregación}
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{llXl}
+    \toprule
+    \multicolumn{4}{c}{\textbf{Tabla: \texttt{lecturas\_resumen\_5d}}} \\
+    \midrule
+    \textbf{Columna} & \textbf{Tipo} & \textbf{Descripción} & \textbf{Restricción} \\
+    \midrule
+    \texttt{id}                  & INTEGER & Identificador autoincremental.                   & PK \\
+    \texttt{fecha\_inicio}       & TEXT    & Inicio del bloque de 5 días (ISO 8601).          & NOT NULL \\
+    \texttt{fecha\_fin}          & TEXT    & Fin del bloque de 5 días (ISO 8601).             & NOT NULL \\
+    \texttt{flujo\_promedio}     & REAL    & Promedio aritmético del caudal en el período.    & NOT NULL \\
+    \texttt{ruido\_promedio}     & REAL    & Promedio aritmético del ruido ADC en el período. & NOT NULL \\
+    \texttt{total\_lecturas}     & INTEGER & Cantidad de lecturas crudas agregadas.            & NOT NULL \\
+    \texttt{estado\_predominante}& TEXT    & Estado con mayor frecuencia en el período.        & NOT NULL \\
+    \bottomrule
+\end{tabularx}
+\vspace{0.5em}
+
+\begin{tabularx}{0.95\textwidth}{llXl}
+    \toprule
+    \multicolumn{4}{c}{\textbf{Tabla: \texttt{historial\_mensual}}} \\
+    \midrule
+    \textbf{Columna} & \textbf{Tipo} & \textbf{Descripción} & \textbf{Restricción} \\
+    \midrule
+    \texttt{id}              & INTEGER & Identificador autoincremental.                        & PK \\
+    \texttt{fecha\_inicio}   & TEXT    & Inicio del período mensual consolidado.               & NOT NULL \\
+    \texttt{fecha\_fin}      & TEXT    & Fin del período mensual consolidado.                  & NOT NULL \\
+    \texttt{num\_anomalias}  & INTEGER & Número de bloques de 5 días clasificados como Anomalía. & NOT NULL \\
+    \texttt{num\_fugas}      & INTEGER & Número de bloques de 5 días clasificados como Fuga.    & NOT NULL \\
+    \texttt{flujo\_promedio} & REAL    & Promedio de flujo a lo largo del período mensual.     & NOT NULL \\
+    \texttt{ruido\_promedio} & REAL    & Promedio de ruido a lo largo del período mensual.     & NOT NULL \\
+    \texttt{resumen\_json}   & TEXT    & JSON con los bloques de 5 días que componen el mes.   & NOT NULL \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Modelos de datos de la agregación jerárquica.}
+\end{center}
+
+\subsection{Proceso de Agregación en Segundo Plano}
+
+El \texttt{BaselineService} ejecuta un timer periódico cada 24 horas con la siguiente cadena de operaciones:
+
+\begin{enumerate}[noitemsep]
+    \item \textbf{Agregación de lecturas crudas}: Se calculan el promedio de flujo, el promedio de ruido, el total de lecturas y el estado predominante del bloque de 5 días. El resultado se inserta en \texttt{lecturas\_resumen\_5d}.
+    \item \textbf{Reconstrucción del baseline}: Se recalcula el perfil estadístico del usuario con los datos más recientes.
+    \item \textbf{Consolidación mensual}: Si existen 5 o más resúmenes de 5 días, se genera un registro en \texttt{historial\_mensual} y los resúmenes individuales correspondientes se eliminan de la tabla \texttt{lecturas\_resumen\_5d} para liberar espacio.
+\end{enumerate}
+
+Este proceso es transparente para el usuario: no genera ninguna notificación ni bloquea la interfaz de usuario.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Integración Event-Driven con la API de Groq}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Eliminación del Polling Periódico}
+
+La versión anterior del sistema invocaba la IA de Groq cada vez que se detectaban 3 strikes de anomalía, sin distinción del tipo de cambio ni del contexto histórico. En la versión 2.0, la lógica de invocación requiere el cumplimiento simultáneo de dos condiciones:
+
+\begin{enumerate}[noitemsep]
+    \item El estado clasificado localmente es \texttt{Anomalía} o \texttt{Fuga} (no \texttt{Normal}).
+    \item La función \texttt{BaselineService.esDesviacionSignificativa()} retorna \texttt{true}.
+\end{enumerate}
+
+Adicionalmente, en el caso de \texttt{Fuga}, la invocación es directa (sin esperar los 3 strikes) dado el riesgo inmediato que representa un caudal crítico.
+
+\subsection{Estructura del Payload Contextual}
+
+El payload enviado a Groq en la versión 2.0 incluye los siguientes campos:
+
+\begin{center}
+\begin{tabularx}{0.9\textwidth}{lX}
+    \toprule
+    \textbf{Campo del contexto} & \textbf{Contenido} \\
+    \midrule
+    Lectura anómala actual & Caudal (L/min), ruido (ADC), clasificación edge, marca temporal. \\
+    Resúmenes de 5 días    & Hasta 3 resúmenes recientes de \texttt{lecturas\_resumen\_5d} en formato texto compacto. \\
+    Historial mensual      & Último registro de \texttt{historial\_mensual} disponible. \\
+    Baseline actual        & Promedio de flujo y ruido del período activo (día/noche). \\
+    Parámetros de referencia & Umbrales del sistema (incluidos en el prompt del sistema). \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Campos del payload enviado a la API de Groq.}
+\end{center}
+
+\subsection{Respuesta y Normalización}
+
+La API de Groq devuelve un JSON con tres campos (\texttt{veredicto}, \texttt{severidad}, \texttt{mensaje}). El servicio \texttt{GroqApiService} normaliza los valores recibidos a los canónicos del sistema mediante las funciones \texttt{\_normalizarVeredicto()} y \texttt{\_normalizarSeveridad()}, garantizando la consistencia semántica con la enumeración \texttt{EstadoSensor}.
+
+En caso de fallo de red o error de la API, el sistema utiliza la clasificación local del edge como fallback, registrando el evento con el mensaje ``Clasificación edge (sin conexión IA)''. Esto garantiza que ningún evento de anomalía o fuga quede sin registrar en el historial SQLite.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Sistema de Alertas por Correo Electrónico}
+% ─────────────────────────────────────────────────────────────────────────────
+
+A partir de la versión 2.0, el sistema envía notificaciones por correo electrónico ante cualquier cambio de estado no-normal, con dos plantillas diferenciadas:
+
+\begin{center}
+\begin{tabularx}{0.9\textwidth}{lXX}
+    \toprule
+    \textbf{Estado detectado} & \textbf{Color del encabezado} & \textbf{Asunto del correo} \\
+    \midrule
+    Anomalía & Naranja (\texttt{\#FF9800}) & \textit{ALERTA PREVENTIVA: Anomalía Detectada} \\
+    Fuga     & Rojo (\texttt{\#F44336})    & \textit{ALERTA CRÍTICA: Fuga Detectada} \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Diferenciación visual de plantillas de correo por nivel de estado.}
+\end{center}
+
+El correo preliminar se envía de forma inmediata al detectarse el cambio de estado (clasificación edge), sin esperar la confirmación de la IA. Posteriormente, si la IA confirma o modifica el estado, se puede enviar una segunda notificación con el veredicto definitivo. El servicio utiliza SMTP sobre Gmail (configurado mediante variables de entorno \texttt{SMTP\_EMAIL} y \texttt{SMTP\_PASSWORD}).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Patrones de Diseño y Convenciones de Arquitectura}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{lXl}
+    \toprule
+    \textbf{Patrón} & \textbf{Aplicación en el sistema} & \textbf{Componente principal} \\
+    \midrule
+    MVC (Model-View-Controller) &
+        Los modelos de datos son PODOs puros; los controladores encapsulan la lógica; las vistas solo leen el estado del controlador. &
+        \texttt{DashboardController} \\
+    \addlinespace
+    Observer / ChangeNotifier &
+        La UI se suscribe al controlador y se reconstruye automáticamente ante cada cambio de estado sin polling de interfaz. &
+        \texttt{ChangeNotifier} + \texttt{ListenableBuilder} \\
+    \addlinespace
+    Command / Event-Driven &
+        La IA solo se invoca cuando un evento local (desviación + strikes) lo justifica; no existe un timer de consulta periódica. &
+        \texttt{\_invocarGroqPorEvento()} \\
+    \addlinespace
+    Sliding Window Filter &
+        El buffer circular de muestras de ruido permite distinguir impactos aislados de patrones sostenidos mediante conteo en ventana temporal. &
+        \texttt{RuidoFilterService} \\
+    \addlinespace
+    Strategy (Fallback) &
+        Si la IA no responde, el sistema usa la clasificación local como estrategia de respaldo, garantizando continuidad operacional. &
+        \texttt{GroqApiService.analizarConContexto()} \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Patrones de diseño aplicados en EdgeLeak AI v2.0.}
+\end{center}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Glosario de Términos Técnicos}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{description}[style=nextline, leftmargin=3cm, font=\bfseries]
+    \item[ADC] \textit{Analog-to-Digital Converter}. Valor numérico que representa la amplitud analógica del micrófono KY-037 convertida a escala digital (rango 0--4095 en ESP32 con ADC de 12 bits).
+    \item[Baseline] Perfil estadístico del comportamiento normal del usuario, calculado sobre lecturas históricas de 5 días. Sirve como referencia para la detección de desviaciones.
+    \item[Edge Computing] Paradigma de procesamiento en el que los datos se analizan localmente (en el dispositivo o la aplicación) antes de ser enviados a la nube, reduciendo latencia y tráfico de red.
+    \item[ESP32] Microcontrolador con Wi-Fi integrado utilizado como nodo sensor. Envía las lecturas del YF-S201 y el KY-037 al servidor HTTP local de la aplicación Flutter.
+    \item[Event-Driven] Modelo de invocación en el que un servicio se activa únicamente ante la ocurrencia de un evento específico (desviación del baseline), en contraposición al polling periódico.
+    \item[KY-037] Módulo micrófono de alta sensibilidad con salida analógica. Utilizado para detectar patrones acústicos de goteo de agua.
+    \item[L/min] Litros por minuto. Unidad de medida del caudal volumétrico de agua procesada a partir de los pulsos del sensor YF-S201.
+    \item[Polling] Estrategia de consulta periódica a un servicio externo en intervalos fijos, independientemente de si ha ocurrido algún evento relevante. Reemplazada en v2.0 por el modelo event-driven.
+    \item[Strike] Conteo interno de lecturas consecutivas en estado no-normal. Al alcanzar 3 strikes, se dispara la invocación de la IA (excepto en el estado \texttt{Fuga}, que es inmediato).
+    \item[YF-S201] Sensor de flujo de agua tipo paleta. Genera pulsos eléctricos proporcionales al caudal volumétrico que atraviesa el sensor.
+\end{description}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Control de Versiones del Documento}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\begin{center}
+\begin{tabularx}{0.9\textwidth}{lllX}
+    \toprule
+    \textbf{Versión} & \textbf{Fecha} & \textbf{Responsable} & \textbf{Descripción del cambio} \\
+    \midrule
+    1.0 & 2024-10 & PICUR Uniremington & Documento inicial. Arquitectura básica ESP32-Flutter-Groq. \\
+    2.0 & 2026-05 & PICUR Uniremington &
+        Incorporación de: máquina de estados de 3 niveles, filtro digital de ruido, baseline adaptativo, agregación jerárquica SQLite, invocación event-driven de IA, y correos diferenciados por severidad. \\
+    \bottomrule
+\end{tabularx}
+\captionof{table}{Historial de versiones de la especificación técnica.}
+\end{center}
+
+\end{document}
