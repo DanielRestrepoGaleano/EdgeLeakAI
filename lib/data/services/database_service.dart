@@ -2,6 +2,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/alerta_fuga_model.dart';
 import '../models/lectura_raw_model.dart';
+import '../models/lectura_resumen_model.dart';
+import '../models/historial_mensual_model.dart';
 import '../models/usuario_model.dart';
 
 class DatabaseService {
@@ -14,11 +16,11 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'edgeleak_v4.db');
+    String path = join(await getDatabasesPath(), 'edgeleak_v5.db');
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE historial(
@@ -53,6 +55,31 @@ class DatabaseService {
             timestamp TEXT
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE lecturas_resumen_5d(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_inicio TEXT,
+            fecha_fin TEXT,
+            flujo_promedio REAL,
+            ruido_promedio REAL,
+            total_lecturas INTEGER,
+            estado_predominante TEXT
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE historial_mensual(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha_inicio TEXT,
+            fecha_fin TEXT,
+            num_anomalias INTEGER,
+            num_fugas INTEGER,
+            flujo_promedio REAL,
+            ruido_promedio REAL,
+            resumen_json TEXT
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -85,6 +112,31 @@ class DatabaseService {
               flujo REAL,
               estado TEXT,
               timestamp TEXT
+            )
+          ''');
+        }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS lecturas_resumen_5d(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              fecha_inicio TEXT,
+              fecha_fin TEXT,
+              flujo_promedio REAL,
+              ruido_promedio REAL,
+              total_lecturas INTEGER,
+              estado_predominante TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS historial_mensual(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              fecha_inicio TEXT,
+              fecha_fin TEXT,
+              num_anomalias INTEGER,
+              num_fugas INTEGER,
+              flujo_promedio REAL,
+              ruido_promedio REAL,
+              resumen_json TEXT
             )
           ''');
         }
@@ -259,5 +311,91 @@ class DatabaseService {
       limit: limit,
     );
     return maps.map(LecturaRawModel.fromMap).toList();
+  }
+
+  /// Retorna todas las lecturas crudas de los últimos [dias] días.
+  Future<List<LecturaRawModel>> obtenerLecturasRawRecientes(
+      {required int dias}) async {
+    final db = await database;
+    final desde = DateTime.now().subtract(Duration(days: dias)).toIso8601String();
+    final maps = await db.query(
+      'lecturas_raw',
+      where: 'timestamp >= ?',
+      whereArgs: [desde],
+      orderBy: 'timestamp ASC',
+    );
+    return maps.map(LecturaRawModel.fromMap).toList();
+  }
+
+  /// Retorna las lecturas crudas dentro de un rango de fechas.
+  Future<List<LecturaRawModel>> obtenerLecturasRawEnRango({
+    required DateTime desde,
+    required DateTime hasta,
+  }) async {
+    final db = await database;
+    final maps = await db.query(
+      'lecturas_raw',
+      where: 'timestamp >= ? AND timestamp <= ?',
+      whereArgs: [desde.toIso8601String(), hasta.toIso8601String()],
+      orderBy: 'timestamp ASC',
+    );
+    return maps.map(LecturaRawModel.fromMap).toList();
+  }
+
+  // === MÉTODOS DE RESÚMENES 5 DÍAS ===
+
+  Future<void> insertarResumen5d(LecturaResumenModel resumen) async {
+    final db = await database;
+    await db.insert(
+      'lecturas_resumen_5d',
+      resumen.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Retorna los [limit] resúmenes de 5 días más recientes.
+  Future<List<LecturaResumenModel>> obtenerResumenes5d({int limit = 5}) async {
+    final db = await database;
+    final maps = await db.query(
+      'lecturas_resumen_5d',
+      orderBy: 'fecha_fin DESC',
+      limit: limit,
+    );
+    return maps.map(LecturaResumenModel.fromMap).toList();
+  }
+
+  /// Elimina los resúmenes de 5 días cuyos IDs estén en [ids].
+  Future<void> eliminarResumenes5d(List<int> ids) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = ids.map((_) => '?').join(', ');
+    await db.delete(
+      'lecturas_resumen_5d',
+      where: 'id IN ($placeholders)',
+      whereArgs: ids,
+    );
+  }
+
+  // === MÉTODOS DE HISTORIAL MENSUAL ===
+
+  Future<void> insertarHistorialMensual(HistorialMensualModel mensual) async {
+    final db = await database;
+    await db.insert(
+      'historial_mensual',
+      mensual.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Retorna los [limit] historiales mensuales más recientes.
+  Future<List<HistorialMensualModel>> obtenerHistorialesMensuales(
+      {int limit = 3}) async {
+    final db = await database;
+    final maps = await db.query(
+      'historial_mensual',
+      orderBy: 'fecha_fin DESC',
+      limit: limit,
+    );
+    return maps.map(HistorialMensualModel.fromMap).toList();
   }
 }

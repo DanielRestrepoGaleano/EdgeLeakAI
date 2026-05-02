@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../config/themes/app_theme.dart';
+import '../../data/models/estado_sensor.dart';
+import '../../data/models/alerta_fuga_model.dart';
 import '../widgets/status_indicator_widget.dart';
 import '../widgets/water_wave_widget.dart';
 import '../../config/routes/app_routes.dart';
@@ -16,23 +18,42 @@ class DashboardScreen extends StatelessWidget {
     required this.authController,
   });
 
-  /// Mapea el estado de Sensor Fusion al modo visual del widget de olas.
-  String _waveMode(String estado) {
+  /// Mapea el estado de la máquina de 3 niveles al modo visual del widget de olas.
+  String _waveMode(EstadoSensor estado) {
     switch (estado) {
-      case 'Posible Fuga':
+      case EstadoSensor.fuga:
+        return 'Fuga';
+      case EstadoSensor.anomalia:
         return 'Anomalia';
-      default:
+      case EstadoSensor.normal:
         return 'Normal';
     }
   }
 
-  /// Color del texto de caudal según el estado detectado por Sensor Fusion.
-  Color _caudalColor(String estado) {
+  /// Color del texto de caudal según el estado de la máquina de 3 niveles.
+  Color _caudalColor(EstadoSensor estado) {
     switch (estado) {
-      case 'Posible Fuga':
+      case EstadoSensor.fuga:
+        return AppTheme.criticalColor;
+      case EstadoSensor.anomalia:
         return AppTheme.warningColor;
-      default:
+      case EstadoSensor.normal:
         return AppTheme.primaryColor;
+    }
+  }
+
+  /// Etiqueta legible del estado para el indicador de sensor fusion.
+  String _estadoLabel(EstadoSensor estado) => estado.etiqueta;
+
+  /// Icono del estado para el indicador de sensor fusion.
+  IconData _estadoIcono(EstadoSensor estado) {
+    switch (estado) {
+      case EstadoSensor.fuga:
+        return Icons.warning;
+      case EstadoSensor.anomalia:
+        return Icons.warning_amber;
+      case EstadoSensor.normal:
+        return Icons.check_circle_outline;
     }
   }
 
@@ -67,8 +88,9 @@ class DashboardScreen extends StatelessWidget {
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
-          final waveMode = _waveMode(controller.estadoActual);
-          final caudalColor = _caudalColor(controller.estadoActual);
+          final estado = controller.estadoActual;
+          final waveMode = _waveMode(estado);
+          final caudalColor = _caudalColor(estado);
 
           return Padding(
             padding: const EdgeInsets.all(20.0),
@@ -146,15 +168,11 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _SensorCard(
-                        label: 'Estado Sensor Fusion',
-                        value: controller.estadoActual,
+                        label: 'Estado del Sistema',
+                        value: _estadoLabel(estado),
                         unit: '',
-                        icon: controller.estadoActual == 'Posible Fuga'
-                            ? Icons.warning_amber
-                            : Icons.check_circle_outline,
-                        color: controller.estadoActual == 'Posible Fuga'
-                            ? AppTheme.warningColor
-                            : AppTheme.normalColor,
+                        icon: _estadoIcono(estado),
+                        color: _caudalColor(estado),
                       ),
                     ),
                   ],
@@ -169,60 +187,14 @@ class DashboardScreen extends StatelessWidget {
                         CircularProgressIndicator(),
                         SizedBox(height: 10),
                         Text(
-                          'Groq AI analizando flujo...',
+                          'Groq AI analizando evento...',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ],
                     ),
                   )
                 else if (controller.ultimaAlerta != null)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color:
-                          controller.ultimaAlerta!.severidad == 'Crítica'
-                              ? AppTheme.criticalColor
-                              : (controller.ultimaAlerta!.severidad ==
-                                        'Advertencia'
-                                    ? AppTheme.warningColor
-                                    : AppTheme.normalColor),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          controller.ultimaAlerta!.severidad == 'Crítica'
-                              ? Icons.warning
-                              : Icons.info,
-                          color: Colors.white,
-                          size: 35,
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                controller.ultimaAlerta!.veredicto,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Text(
-                                controller.ultimaAlerta!.mensaje,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _AlertaBanner(alerta: controller.ultimaAlerta!),
 
                 const Spacer(),
                 // ── Leyenda de strikes activos ───────────────────────────
@@ -232,6 +204,61 @@ class DashboardScreen extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Banner de resultado de la IA con colores acordes al veredicto.
+class _AlertaBanner extends StatelessWidget {
+  final AlertaFugaModel alerta;
+  const _AlertaBanner({required this.alerta});
+
+  @override
+  Widget build(BuildContext context) {
+    Color bgColor;
+    IconData icono;
+    if (alerta.severidad == 'Crítica') {
+      bgColor = AppTheme.criticalColor;
+      icono = Icons.warning;
+    } else if (alerta.severidad == 'Advertencia') {
+      bgColor = AppTheme.warningColor;
+      icono = Icons.warning_amber;
+    } else {
+      bgColor = AppTheme.normalColor;
+      icono = Icons.check_circle;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(icono, color: Colors.white, size: 35),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  alerta.veredicto,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  alerta.mensaje,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -320,7 +347,7 @@ class _StrikesIndicator extends StatelessWidget {
   }
 }
 
-/// Leyenda compacta con los umbrales de referencia.
+/// Leyenda compacta con los umbrales de referencia de los 3 estados.
 class _UmbralLegenda extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -397,4 +424,3 @@ class _LegendaItem extends StatelessWidget {
     );
   }
 }
-

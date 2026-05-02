@@ -3,6 +3,7 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/alerta_fuga_model.dart';
+import '../models/estado_sensor.dart';
 
 class EmailService {
   Future<bool> enviarCorreoAlerta(
@@ -14,18 +15,32 @@ class EmailService {
 
     final smtpServer = gmail(username, password);
 
+    // Determinar el estado para personalizar el correo
+    final estado = EstadoSensor.fromEtiqueta(alerta.veredicto);
+    final esFuga = estado == EstadoSensor.fuga;
+
+    final colorEncabezado = esFuga ? '#F44336' : '#FF9800';
+    final tituloCorreo =
+        esFuga ? '⚠️ EdgeLeak AI — Fuga Detectada' : '⚡ EdgeLeak AI — Anomalía Detectada';
+    final subtitulo = esFuga
+        ? 'Fuga Crítica Confirmada'
+        : 'Anomalía Preventiva Detectada';
+    final descripcion = esFuga
+        ? 'El sistema de Inteligencia Artificial ha confirmado una fuga activa en la tubería monitorizada.'
+        : 'El sistema ha detectado un comportamiento anómalo (posible goteo o desviación del patrón normal). Se recomienda verificar la instalación.';
+
     final htmlBody = '''
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-      <div style="background-color: #F44336; padding: 20px; text-align: center;">
-        <h1 style="color: white; margin: 0;">⚠️ EdgeLeak AI — Alerta de Fuga</h1>
+      <div style="background-color: $colorEncabezado; padding: 20px; text-align: center;">
+        <h1 style="color: white; margin: 0;">$tituloCorreo</h1>
       </div>
       <div style="padding: 30px; background-color: #f9f9f9;">
-        <h2 style="color: #F44336;">Fuga Crítica Detectada</h2>
-        <p style="color: #555; font-size: 16px;">El sistema de Inteligencia Artificial ha confirmado una anomalía crítica en la tubería monitorizada.</p>
+        <h2 style="color: $colorEncabezado;">$subtitulo</h2>
+        <p style="color: #555; font-size: 16px;">$descripcion</p>
         <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
           <tr style="background-color: #fff;">
             <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Veredicto IA</td>
-            <td style="padding: 10px; border: 1px solid #ddd; color: #F44336; font-weight: bold;">${alerta.veredicto}</td>
+            <td style="padding: 10px; border: 1px solid #ddd; color: $colorEncabezado; font-weight: bold;">${alerta.veredicto}</td>
           </tr>
           <tr style="background-color: #fafafa;">
             <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">Severidad</td>
@@ -40,7 +55,7 @@ class EmailService {
             <td style="padding: 10px; border: 1px solid #ddd;">${alerta.fecha.toLocal()}</td>
           </tr>
         </table>
-        <p style="color: #F44336; font-size: 14px;"><strong>⚠️ Acción Requerida:</strong> Revise la instalación inmediatamente para evitar daños mayores.</p>
+        <p style="color: $colorEncabezado; font-size: 14px;"><strong>⚠️ Acción Requerida:</strong> Revise la instalación para evitar daños o desperdicio de agua.</p>
       </div>
       <div style="background-color: #eee; padding: 10px; text-align: center; color: #888; font-size: 12px;">
         Este es un correo automático del sistema EdgeLeak AI (Proyecto PICUR Uniremington). No respondas a este mensaje.
@@ -48,10 +63,14 @@ class EmailService {
     </div>
     ''';
 
+    final asunto = esFuga
+        ? '🚨 ALERTA CRÍTICA: Fuga Detectada — EdgeLeak AI'
+        : '⚡ ALERTA PREVENTIVA: Anomalía Detectada — EdgeLeak AI';
+
     final message = Message()
       ..from = Address(username, 'EdgeLeak AI — Alertas')
       ..recipients.add(destinatario)
-      ..subject = '🚨 ALERTA CRÍTICA: Fuga Detectada — EdgeLeak AI'
+      ..subject = asunto
       ..html = htmlBody;
 
     try {

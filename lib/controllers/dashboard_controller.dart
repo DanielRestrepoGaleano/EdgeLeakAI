@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import '../data/models/estado_sensor.dart';
 import '../data/models/lectura_sensor_model.dart';
 import '../data/models/alerta_fuga_model.dart';
 import '../data/models/lectura_raw_model.dart';
@@ -7,11 +7,15 @@ import '../data/services/groq_api_service.dart';
 import '../data/services/database_service.dart';
 import '../data/services/local_api_service.dart';
 import '../data/services/email_service.dart';
+import '../data/services/ruido_filter_service.dart';
+import '../data/services/baseline_service.dart';
 
 class DashboardController extends ChangeNotifier {
   final GroqApiService _apiService = GroqApiService();
   final DatabaseService _dbService = DatabaseService();
   final EmailService _emailService = EmailService();
+  final RuidoFilterService _ruidoFilter = RuidoFilterService();
+  late final BaselineService _baselineService;
   late final LocalApiService _localApiService;
 
   double caudalActual = 0.0;
@@ -37,9 +41,9 @@ class DashboardController extends ChangeNotifier {
   final Set<int> seleccionados = {};
   bool modoSeleccion = false;
 
-  // --- Sensor Fusion ---
-  String _estadoActual = 'Sin datos';
-  String get estadoActual => _estadoActual;
+  // --- Máquina de estados de 3 niveles ---
+  EstadoSensor _estadoActual = EstadoSensor.normal;
+  EstadoSensor get estadoActual => _estadoActual;
 
   final List<Map<String, dynamic>> _bufferLecturas = [];
   List<Map<String, dynamic>> get bufferLecturas =>
@@ -49,21 +53,24 @@ class DashboardController extends ChangeNotifier {
   int strikesFuga = 0;
 
   // Umbrales de Sensor Fusion
-  static const int _umbralRuido = 1500;
-  static const double _umbralFlujoFuga = 0.1;
+  static const double _umbralFlujoAnomalia = 0.5;
+  static const double _umbralFlujoFuga = 5.0;
 
   DashboardController() {
+    _baselineService = BaselineService(_dbService);
     _localApiService = LocalApiService(
       onProcesarLectura: procesarLecturaSensor,
-      onEstadoActual: () => _estadoActual,
+      onEstadoActual: () => _estadoActual.etiqueta,
       dbService: _dbService,
     );
     _localApiService.iniciar();
+    _baselineService.iniciar();
   }
 
   void setUsuarioLogueado(String nombre, {String correo = ''}) {
     usuarioLogueado = nombre;
     correoUsuarioActual = correo;
+    _baselineService.reconstruirBaseline();
     notifyListeners();
   }
 
@@ -173,58 +180,92 @@ class DashboardController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Sensor Fusion con regla de 3 Strikes (lecturas del ESP32)
+  // Máquina de estados de 3 niveles + filtro de ruido + baseline
   // ---------------------------------------------------------------------------
 
-  bool _esPosibleFuga(int ruido, double flujo) =>
-      ruido > _umbralRuido && flujo < _umbralFlujoFuga;
+  /// Clasifica el estado del sensor aplicando la jerarquía de 3 niveles y el
+  /// filtro de ruido digital. La lógica nocturna se delega en [RuidoFilterService].
+  EstadoSensor _clasificarEstado(int ruido, double flujo) {
+    // Nivel 3: Fuga activa — caudal crítico, sin importar el ruido
+    if (flujo > _umbralFlujoFuga) return EstadoSensor.fuga;
+
+    // Análisis de patrón de ruido
+    final resultadoRuido = _ruidoFilter.clasificar(ruido, flujo);
+
+    // Nivel 2: Anomalía — flujo intermedio O patrón de goteo
+    if (flujo > _umbralFlujoAnomalia ||
+        resultadoRuido == ResultadoRuido.patronGoteo) {
+      return EstadoSensor.anomalia;
+    }
+
+    // Nivel 1: Normal
+    return EstadoSensor.normal;
+  }
 
   Future<void> procesarLecturaSensor(int ruido, double flujo) async {
     final DateTime timestampLectura = DateTime.now();
 
     ruidoActual = ruido;
     caudalActual = flujo;
-    conectado = true; // marca el nodo como activo al recibir datos reales
+    conectado = true;
 
-    // 1. Sensor Fusion — determinar estado
-    final String estado =
-        _esPosibleFuga(ruido, flujo) ? 'Posible Fuga' : 'Uso Normal';
-    _estadoActual = estado;
+    // 1. Clasificar estado con la máquina de 3 niveles
+    final EstadoSensor nuevoEstado = _clasificarEstado(ruido, flujo);
+    final bool cambioDeEstado = nuevoEstado != _estadoActual;
 
-    // 2. Regla de los 3 Strikes
-    if (_esPosibleFuga(ruido, flujo)) {
+    _estadoActual = nuevoEstado;
+
+    // 2. Regla de los 3 Strikes (para Anomalía y Fuga)
+    if (nuevoEstado != EstadoSensor.normal) {
       strikesFuga++;
     } else {
       strikesFuga = 0;
     }
 
-    // ⚡ Notificar INMEDIATAMENTE para que la UI refleje los valores del sensor
-    // en tiempo real, sin esperar operaciones de BD ni llamadas a la IA.
+    // ⚡ Notificar INMEDIATAMENTE para que la UI refleje el estado en tiempo real
     notifyListeners();
 
-    if (strikesFuga >= 3 && !iaProcesando) {
-      strikesFuga = 0;
-      // Llamar a la IA en background; errores no deben bloquear la lectura
-      _llamarGroqPorFuga(flujo, timestampLectura).catchError((e) {
-        debugPrint('[DashboardController] Error al llamar a Groq: $e');
+    // 3. Enviar correo inmediato al detectar cambio a Anomalía o Fuga
+    if (cambioDeEstado &&
+        nuevoEstado != EstadoSensor.normal &&
+        correoUsuarioActual.isNotEmpty) {
+      _enviarCorreoEstadoCambiado(nuevoEstado, flujo, ruido, timestampLectura)
+          .catchError((e) {
+        debugPrint('[DashboardController] Error al enviar correo de estado: $e');
       });
     }
 
-    // 3. Guardar lectura cruda en BD (async, no bloquea la UI)
+    // 4. Invocar IA solo por evento (desviación del baseline O 3 strikes), no por polling
+    final bool desviaBaseline =
+        _baselineService.esDesviacionSignificativa(ruido, flujo);
+
+    if ((strikesFuga >= 3 || (cambioDeEstado && nuevoEstado == EstadoSensor.fuga)) &&
+        !iaProcesando &&
+        desviaBaseline) {
+      if (nuevoEstado != EstadoSensor.normal) {
+        strikesFuga = 0;
+        _invocarGroqPorEvento(ruido, flujo, nuevoEstado, timestampLectura)
+            .catchError((e) {
+          debugPrint('[DashboardController] Error al llamar a Groq: $e');
+        });
+      }
+    }
+
+    // 5. Guardar lectura cruda en BD con el estado real (no siempre 'Normal')
     await _dbService.insertarLecturaRaw(
       LecturaRawModel(
         ruido: ruido,
         flujo: flujo,
-        estado: estado,
+        estado: nuevoEstado.etiqueta,
         timestamp: timestampLectura,
       ),
     );
 
-    // 4. Actualizar buffer en memoria (máximo 10 lecturas)
+    // 6. Actualizar buffer en memoria (máximo 10 lecturas)
     _bufferLecturas.add({
       'ruido': ruido,
       'flujo': flujo,
-      'estado': estado,
+      'estado': nuevoEstado.etiqueta,
       'timestamp': timestampLectura.toIso8601String(),
     });
     if (_bufferLecturas.length > 10) {
@@ -232,28 +273,59 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
-  Future<void> _llamarGroqPorFuga(double flujo, DateTime timestamp) async {
+  // ---------------------------------------------------------------------------
+  // Invocación event-driven a Groq
+  // ---------------------------------------------------------------------------
+
+  Future<void> _invocarGroqPorEvento(
+    int ruido,
+    double flujo,
+    EstadoSensor estadoLocal,
+    DateTime timestamp,
+  ) async {
     iaProcesando = true;
     ultimaAlerta = null;
     notifyListeners();
 
     try {
-      final lectura = LecturaSensorModel(caudalLPM: flujo, timestamp: timestamp);
-      final respuestaIA = await _apiService.analizarPatronReal(lectura);
+      // Construir contexto histórico
+      final resumenes = await _baselineService.obtenerContextoIA(limit: 3);
+      final mensual = await _baselineService.obtenerUltimoMensual();
 
-      if (respuestaIA.veredicto != 'Error de Red / IA') {
-        await _dbService.insertarAlerta(respuestaIA);
+      final contexto = <String, dynamic>{
+        'resumenes_5d': resumenes.map((r) => r.toContextString()).toList(),
+        if (mensual != null) 'historial_mensual': mensual.toContextString(),
+        if (_baselineService.flujoBaselineActual != null)
+          'flujo_baseline':
+              _baselineService.flujoBaselineActual!.toStringAsFixed(3),
+        if (_baselineService.ruidoBaselineActual != null)
+          'ruido_baseline':
+              _baselineService.ruidoBaselineActual!.toStringAsFixed(0),
+      };
 
-        // Enviar correo de alerta si la IA confirma fuga crítica
-        if ((respuestaIA.veredicto == 'Fuga Detectada' ||
-                respuestaIA.severidad == 'Crítica') &&
-            correoUsuarioActual.isNotEmpty) {
-          final enviado = await _emailService.enviarCorreoAlerta(
-              correoUsuarioActual, respuestaIA);
-          if (!enviado) {
-            debugPrint(
-                '[DashboardController] ⚠️ Correo de alerta no pudo enviarse a $correoUsuarioActual');
-          }
+      final lectura = LecturaSensorModel(
+        caudalLPM: flujo,
+        ruido: ruido,
+        timestamp: timestamp,
+      );
+
+      final respuestaIA = await _apiService.analizarConContexto(
+        lectura: lectura,
+        estadoLocal: estadoLocal,
+        contexto: contexto,
+      );
+
+      // Persistir en historial con estado real
+      await _dbService.insertarAlerta(respuestaIA);
+
+      // Enviar correo si la IA confirma anomalía o fuga
+      final estadoIA = EstadoSensor.fromEtiqueta(respuestaIA.veredicto);
+      if (estadoIA != EstadoSensor.normal && correoUsuarioActual.isNotEmpty) {
+        final enviado = await _emailService.enviarCorreoAlerta(
+            correoUsuarioActual, respuestaIA);
+        if (!enviado) {
+          debugPrint(
+              '[DashboardController] ⚠️ Correo de alerta no pudo enviarse a $correoUsuarioActual');
         }
       }
 
@@ -267,9 +339,33 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Envío de correo inmediato por cambio de estado (antes de confirmar con IA)
+  // ---------------------------------------------------------------------------
+
+  Future<void> _enviarCorreoEstadoCambiado(
+    EstadoSensor estado,
+    double flujo,
+    int ruido,
+    DateTime timestamp,
+  ) async {
+    // Crear una alerta preliminar basada en la clasificación local (edge)
+    final alertaPrevia = AlertaFugaModel(
+      veredicto: estado.veredicto,
+      severidad: estado.severidad,
+      mensaje:
+          'Clasificación preliminar edge. Flujo: ${flujo.toStringAsFixed(3)} L/min | '
+          'Ruido: $ruido ADC. Análisis IA en curso.',
+      fecha: timestamp,
+    );
+
+    await _emailService.enviarCorreoAlerta(correoUsuarioActual, alertaPrevia);
+  }
+
   @override
   void dispose() {
     _localApiService.detener();
+    _baselineService.detener();
     super.dispose();
   }
 }
