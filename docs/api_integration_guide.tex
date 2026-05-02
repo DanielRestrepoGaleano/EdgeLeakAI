@@ -1,0 +1,894 @@
+% ============================================================
+%  EdgeLeak AI — Guía de Integración por API
+%  Documento técnico para equipo externo (Flutter + Firebase)
+%  Versión 1.0 — 2025
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% --- Paquetes ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{mdframed}
+\usepackage{fontawesome5}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+
+% --- Márgenes ---
+\geometry{
+  top=2.5cm, bottom=2.5cm,
+  left=2.8cm, right=2.8cm
+}
+
+% --- Colores corporativos EdgeLeak ---
+\definecolor{edgeblue}{RGB}{13, 71, 161}
+\definecolor{edgelightblue}{RGB}{227, 242, 253}
+\definecolor{edgegray}{RGB}{96, 125, 139}
+\definecolor{edgegreen}{RGB}{27, 94, 32}
+\definecolor{edgered}{RGB}{183, 28, 28}
+\definecolor{edgeorange}{RGB}{230, 81, 0}
+\definecolor{codebg}{RGB}{245, 245, 245}
+\definecolor{codeframe}{RGB}{200, 200, 200}
+\definecolor{successgreen}{RGB}{46, 125, 50}
+\definecolor{warningyellow}{RGB}{245, 124, 0}
+
+% --- Configuración de hipervínculos ---
+\hypersetup{
+  colorlinks=true,
+  linkcolor=edgeblue,
+  urlcolor=edgeblue,
+  pdftitle={EdgeLeak AI - Guía de Integración por API},
+  pdfauthor={Equipo EdgeLeak AI},
+}
+
+% --- Cabecera y pie de página ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{edgegray}{\small EdgeLeak AI}}
+\fancyhead[R]{\textcolor{edgegray}{\small Guía de Integración por API}}
+\fancyfoot[C]{\textcolor{edgegray}{\thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% --- Estilo de secciones ---
+\titleformat{\section}
+  {\Large\bfseries\color{edgeblue}}
+  {\thesection.}{0.5em}{}[\color{edgeblue}\titlerule]
+\titleformat{\subsection}
+  {\large\bfseries\color{edgeblue!80!black}}
+  {\thesubsection.}{0.5em}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{edgegray}}
+  {\thesubsubsection.}{0.5em}{}
+
+% --- Estilo de código (JSON / Dart / HTTP) ---
+\lstdefinestyle{jsonStyle}{
+  language=,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0.6pt,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  keywordstyle=\color{edgeblue}\bfseries,
+  stringstyle=\color{edgegreen},
+  commentstyle=\color{edgegray}\itshape,
+  numbers=none,
+  xleftmargin=10pt,
+  xrightmargin=10pt,
+  tabsize=2,
+  captionpos=b,
+}
+
+\lstdefinestyle{dartStyle}{
+  language=Java,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  framerule=0.6pt,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  keywordstyle=\color{edgeblue}\bfseries,
+  stringstyle=\color{edgegreen},
+  commentstyle=\color{edgegray}\itshape,
+  numbers=left,
+  numberstyle=\tiny\color{edgegray},
+  numbersep=8pt,
+  xleftmargin=20pt,
+  xrightmargin=10pt,
+  tabsize=2,
+  captionpos=b,
+  morekeywords={String, int, double, bool, List, Map, Future, void, async, await,
+                final, const, class, return, if, else, try, catch, throw, new,
+                import, null, true, false, var},
+}
+
+\lstdefinestyle{httpStyle}{
+  language=,
+  backgroundcolor=\color{edgelightblue},
+  frame=single,
+  framerule=0.8pt,
+  rulecolor=\color{edgeblue!50},
+  basicstyle=\ttfamily\small\bfseries,
+  breaklines=true,
+  showstringspaces=false,
+  numbers=none,
+  xleftmargin=10pt,
+  xrightmargin=10pt,
+}
+
+% --- Cajas informativas ---
+\tcbset{
+  infobox/.style={
+    enhanced, breakable,
+    colback=edgelightblue,
+    colframe=edgeblue,
+    fonttitle=\bfseries\small,
+    title={\faInfoCircle\ Información},
+    left=6pt, right=6pt, top=4pt, bottom=4pt,
+  },
+  warningbox/.style={
+    enhanced, breakable,
+    colback=yellow!10,
+    colframe=warningyellow,
+    fonttitle=\bfseries\small\color{warningyellow},
+    title={\faExclamationTriangle\ Importante},
+    left=6pt, right=6pt, top=4pt, bottom=4pt,
+  },
+  successbox/.style={
+    enhanced, breakable,
+    colback=green!8,
+    colframe=successgreen,
+    fonttitle=\bfseries\small\color{successgreen},
+    title={\faCheckCircle\ Ejemplo exitoso},
+    left=6pt, right=6pt, top=4pt, bottom=4pt,
+  },
+  errorbox/.style={
+    enhanced, breakable,
+    colback=red!8,
+    colframe=edgered,
+    fonttitle=\bfseries\small\color{edgered},
+    title={\faTimesCircle\ Error},
+    left=6pt, right=6pt, top=4pt, bottom=4pt,
+  },
+}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% --- Portada ---
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+
+  {\color{edgeblue}\rule{\linewidth}{2pt}}
+  \vspace{0.5cm}
+
+  {\Huge\bfseries\color{edgeblue} EdgeLeak AI}\\[0.4cm]
+  {\Large\color{edgegray} Sistema de Detección de Microfugas con IA}\\[1cm]
+
+  {\color{edgeblue}\rule{\linewidth}{1pt}}
+  \vspace{1cm}
+
+  {\LARGE\bfseries Guía de Integración por API}\\[0.3cm]
+  {\large\color{edgegray} Para equipos externos — Flutter + Firebase}\\[2cm]
+
+  \begin{tcolorbox}[
+    enhanced,
+    colback=edgelightblue,
+    colframe=edgeblue,
+    width=0.75\textwidth,
+    center,
+    left=12pt, right=12pt, top=8pt, bottom=8pt,
+  ]
+    \centering
+    \textbf{Versión:} 1.0\\
+    \textbf{Puerto base:} \texttt{8080}\\
+    \textbf{Protocolo:} HTTP/1.1\\
+    \textbf{Formato de datos:} JSON
+  \end{tcolorbox}
+
+  \vspace{2cm}
+
+  {\color{edgegray}\large
+    Corporación Universitaria Remington\\
+    Proyecto Integrador (PICUR)\\
+    \vspace{0.3cm}
+    \today
+  }
+
+  \vfill
+  {\color{edgeblue}\rule{\linewidth}{2pt}}
+\end{titlepage}
+
+% --- Tabla de contenidos ---
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{¿Qué es EdgeLeak AI?}
+% ============================================================
+
+EdgeLeak AI es una aplicación móvil desarrollada en Flutter que actúa como
+\textbf{cerebro central} de un sistema IoT para la detección inteligente de
+microfugas en tuberías domésticas. El sistema combina datos de un sensor de
+sonido y un sensor de flujo de agua (ESP32) con un modelo de Inteligencia
+Artificial (Groq API) para emitir veredictos sobre el estado de la tubería.
+
+Cada vez que la IA detecta una posible fuga, el resultado queda guardado
+automáticamente en una base de datos local SQLite dentro del dispositivo que
+ejecuta la app.
+
+\begin{tcolorbox}[infobox]
+  Este documento explica cómo tu aplicación (Flutter + Firebase) puede
+  conectarse a EdgeLeak AI para consultar ese historial de alertas en tiempo
+  real, sin necesidad de conocer los detalles internos del sistema.
+\end{tcolorbox}
+
+% ============================================================
+\section{Cómo funciona la conexión}
+% ============================================================
+
+EdgeLeak AI levanta un \textbf{pequeño servidor web} dentro del mismo celular
+donde corre la app, escuchando en el puerto \textbf{8080}. Ese servidor expone
+una URL (llamada \emph{endpoint}) que puedes llamar desde tu aplicación para
+obtener los datos.
+
+La comunicación es sencilla:
+
+\begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
+  \item Tu app envía una petición HTTP al celular con EdgeLeak AI.
+  \item EdgeLeak AI verifica que tengas la llave secreta correcta.
+  \item Si todo está bien, te responde con la lista de alertas en formato JSON.
+\end{enumerate}
+
+\begin{tcolorbox}[warningbox]
+  Ambos dispositivos (el que corre EdgeLeak AI y el que corre tu app) deben
+  estar conectados a la \textbf{misma red Wi-Fi local} para que la comunicación
+  funcione. No se necesita internet ni servidor externo.
+\end{tcolorbox}
+
+% ============================================================
+\section{Requisito previo: obtener la IP del dispositivo}
+% ============================================================
+
+Antes de hacer cualquier petición necesitas saber la \textbf{dirección IP local}
+del celular donde corre EdgeLeak AI. Piensa en la IP como la "dirección de la
+casa" del dispositivo en tu red Wi-Fi.
+
+\subsection{Cómo encontrar la IP en Android}
+
+\begin{enumerate}[leftmargin=*, label=\arabic*.)]
+  \item Abre \textbf{Ajustes} en el celular con EdgeLeak AI.
+  \item Ve a \textbf{Conexiones} $\rightarrow$ \textbf{Wi-Fi}.
+  \item Toca el nombre de la red Wi-Fi a la que estás conectado.
+  \item Busca el campo que dice \textbf{Dirección IP} o \textbf{IP address}.
+\end{enumerate}
+
+Verás algo como: \texttt{192.168.1.45}
+
+La URL base que usarás en todas tus peticiones será:
+
+\begin{lstlisting}[style=httpStyle]
+http://192.168.1.45:8080
+\end{lstlisting}
+
+\begin{tcolorbox}[infobox]
+  \textbf{Tip:} La IP puede cambiar si el router asigna una nueva al dispositivo.
+  Para evitar problemas, puedes configurar una IP fija (estática) en los ajustes
+  de Wi-Fi del celular con EdgeLeak AI, o guardar la IP en Firebase para que tu
+  app siempre sepa a dónde conectarse.
+\end{tcolorbox}
+
+% ============================================================
+\section{Autenticación: la llave secreta (x-api-key)}
+% ============================================================
+
+Para proteger los datos, EdgeLeak AI exige que todas las peticiones incluyan
+una \textbf{llave secreta} en el encabezado (header) de la solicitud HTTP. Esto
+evita que cualquier persona en la red pueda leer el historial sin permiso.
+
+\subsection{¿Cómo se envía la llave?}
+
+Se incluye en el encabezado HTTP con el nombre \texttt{x-api-key}:
+
+\begin{lstlisting}[style=httpStyle]
+x-api-key: edgeleak-share-2024
+\end{lstlisting}
+
+\subsection{Valor de la llave}
+
+\begin{center}
+  \begin{tcolorbox}[
+    enhanced,
+    colback=codebg,
+    colframe=edgegray,
+    width=0.6\textwidth,
+    center,
+    left=10pt, right=10pt,
+  ]
+    \centering
+    \texttt{\large edgeleak-share-2024}
+  \end{tcolorbox}
+\end{center}
+
+\begin{tcolorbox}[warningbox]
+  Este valor puede ser personalizado en el archivo de configuración
+  \texttt{.env} de EdgeLeak AI (variable \texttt{LOCAL\_API\_KEY}). Si el
+  equipo de EdgeLeak cambia la clave, deberás actualizar el valor en tu app
+  también. Coordina este cambio con el equipo de EdgeLeak AI.
+\end{tcolorbox}
+
+% ============================================================
+\section{Endpoints disponibles}
+% ============================================================
+
+EdgeLeak AI expone dos endpoints. El que te interesa como consumidor externo
+es el de historial.
+
+\begin{center}
+\begin{tabular}{>{\bfseries}l l l p{5.5cm}}
+  \toprule
+  Método & Ruta & Protegido & Descripción \\
+  \midrule
+  \textcolor{successgreen}{GET}  & \texttt{/api/history} & Sí & Devuelve la lista de alertas de fuga detectadas. \\
+  \addlinespace
+  \textcolor{edgeorange}{POST} & \texttt{/api/sensor}  & Sí & Recibe datos del sensor ESP32 (uso interno del hardware). \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3cm}
+\begin{tcolorbox}[infobox]
+  Como aplicación consumidora solo necesitas usar \textbf{GET /api/history}.
+  El endpoint \texttt{POST /api/sensor} es exclusivo para el hardware ESP32.
+\end{tcolorbox}
+
+% ============================================================
+\section{Endpoint principal: GET /api/history}
+% ============================================================
+
+\subsection{¿Qué hace?}
+
+Devuelve \textbf{todas las alertas de fuga} que EdgeLeak AI ha registrado,
+ordenadas de la más reciente a la más antigua. Cada alerta tiene el veredicto
+de la IA, la severidad, un mensaje explicativo y la fecha exacta.
+
+\subsection{Cómo construir la petición}
+
+\begin{lstlisting}[style=httpStyle, caption={Petición HTTP completa}]
+GET http://[IP_DEL_DISPOSITIVO]:8080/api/history HTTP/1.1
+x-api-key: edgeleak-share-2024
+\end{lstlisting}
+
+Reemplaza \texttt{[IP\_DEL\_DISPOSITIVO]} con la IP real del celular con
+EdgeLeak AI (ver Sección 3).
+
+\subsection{Respuesta exitosa (código 200)}
+
+La API responde con un arreglo JSON. Cada elemento del arreglo representa
+una alerta:
+
+\begin{lstlisting}[style=jsonStyle, caption={Ejemplo de respuesta exitosa}]
+[
+  {
+    "id": 5,
+    "veredicto": "Fuga Detectada",
+    "severidad": "Critica",
+    "mensaje": "Caudal anormalmente bajo (0.04 L/min) con ruido elevado
+                detectado. Alta probabilidad de microfuga activa.",
+    "timestamp": "2025-04-28T14:32:10.123"
+  },
+  {
+    "id": 4,
+    "veredicto": "Sin Fuga",
+    "severidad": "Normal",
+    "mensaje": "Patron de flujo estable. No se detectan anomalias.",
+    "timestamp": "2025-04-28T13:15:42.000"
+  },
+  {
+    "id": 3,
+    "veredicto": "Fuga Detectada",
+    "severidad": "Alta",
+    "mensaje": "Posible fuga de baja intensidad. Se recomienda revision.",
+    "timestamp": "2025-04-27T09:08:31.500"
+  }
+]
+\end{lstlisting}
+
+\subsection{Significado de cada campo}
+
+\begin{center}
+\begin{tabular}{>{\ttfamily}l l p{6.5cm}}
+  \toprule
+  \textrm{Campo} & Tipo & Descripción \\
+  \midrule
+  id          & Número entero   & Identificador único del registro. Se incrementa
+                                   automáticamente. \\
+  \addlinespace
+  veredicto   & Texto           & Resultado del análisis de IA. Puede ser
+                                   \textbf{"Fuga Detectada"} o
+                                   \textbf{"Sin Fuga"}. \\
+  \addlinespace
+  severidad   & Texto           & Nivel de gravedad asignado por la IA. Valores
+                                   posibles: \textbf{Crítica}, \textbf{Alta},
+                                   \textbf{Media}, \textbf{Baja}, \textbf{Normal}. \\
+  \addlinespace
+  mensaje     & Texto           & Descripción detallada generada por la IA
+                                   explicando el resultado. \\
+  \addlinespace
+  timestamp   & Texto (ISO 8601)& Fecha y hora exacta en que se registró la
+                                   alerta. Formato: \texttt{YYYY-MM-DDTHH:mm:ss.SSS} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Respuestas de error}
+
+\begin{tcolorbox}[errorbox, title={\faTimesCircle\ Error 401 — No autorizado}]
+\begin{lstlisting}[style=jsonStyle]
+{
+  "error": "No autorizado. Header x-api-key invalido o ausente."
+}
+\end{lstlisting}
+  \vspace{0.2cm}
+  \textbf{Causa:} No enviaste el header \texttt{x-api-key} o el valor es incorrecto.\\
+  \textbf{Solución:} Verifica que el header esté incluido y que el valor sea exactamente \texttt{edgeleak-share-2024}.
+\end{tcolorbox}
+
+\begin{tcolorbox}[errorbox, title={\faTimesCircle\ Error 404 — Endpoint no encontrado}]
+\begin{lstlisting}[style=jsonStyle]
+{
+  "error": "Endpoint no encontrado: GET /api/historial"
+}
+\end{lstlisting}
+  \vspace{0.2cm}
+  \textbf{Causa:} La ruta está mal escrita. El endpoint correcto es \texttt{/api/history} (en inglés).\\
+  \textbf{Solución:} Corrige la URL.
+\end{tcolorbox}
+
+% ============================================================
+\section{Integración con Flutter + Firebase}
+% ============================================================
+
+A continuación encontrarás el código completo y listo para usar en tu
+aplicación Flutter. Está organizado en pasos para que sea fácil de seguir.
+
+\subsection{Paso 1 — Agregar la dependencia HTTP}
+
+En tu archivo \texttt{pubspec.yaml}, asegúrate de tener el paquete \texttt{http}:
+
+\begin{lstlisting}[style=dartStyle, caption={pubspec.yaml}]
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0          # Paquete para hacer peticiones HTTP
+  firebase_core: ^2.x.x # Ya lo tienes en tu proyecto
+\end{lstlisting}
+
+Luego ejecuta en la terminal:
+
+\begin{lstlisting}[style=httpStyle]
+flutter pub get
+\end{lstlisting}
+
+\subsection{Paso 2 — Crear el modelo de datos}
+
+Crea el archivo \texttt{lib/models/alerta\_fuga.dart} para representar
+cada alerta que recibes de EdgeLeak AI:
+
+\begin{lstlisting}[style=dartStyle, caption={lib/models/alerta\_fuga.dart}]
+class AlertaFuga {
+  final int id;
+  final String veredicto;
+  final String severidad;
+  final String mensaje;
+  final DateTime timestamp;
+
+  AlertaFuga({
+    required this.id,
+    required this.veredicto,
+    required this.severidad,
+    required this.mensaje,
+    required this.timestamp,
+  });
+
+  // Convierte el JSON que llega de la API a un objeto AlertaFuga
+  factory AlertaFuga.fromJson(Map<String, dynamic> json) {
+    return AlertaFuga(
+      id: json['id'] as int,
+      veredicto: json['veredicto'] as String,
+      severidad: json['severidad'] as String,
+      mensaje: json['mensaje'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+    );
+  }
+
+  // Dice si es una fuga detectada (util para mostrar alertas)
+  bool get esFuga => veredicto == 'Fuga Detectada';
+
+  // Dice si la severidad es critica o alta
+  bool get esGrave => severidad == 'Critica' || severidad == 'Alta';
+}
+\end{lstlisting}
+
+\subsection{Paso 3 — Crear el servicio de conexión}
+
+Crea el archivo \texttt{lib/services/edgeleak\_service.dart}. Este archivo
+es el encargado de hablar con EdgeLeak AI:
+
+\begin{lstlisting}[style=dartStyle, caption={lib/services/edgeleak\_service.dart}]
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../models/alerta_fuga.dart';
+
+class EdgeLeakService {
+  // --- CONFIGURA ESTOS VALORES ---
+  // Pon aqui la IP del celular donde corre EdgeLeak AI.
+  // Si la guardas en Firebase Remote Config, puedes cambiarla
+  // sin actualizar la app.
+  static const String _ipEdgeLeak = '192.168.1.45';
+  static const int    _puerto     = 8080;
+  static const String _apiKey     = 'edgeleak-share-2024';
+  // --------------------------------
+
+  static String get _baseUrl => 'http://$_ipEdgeLeak:$_puerto';
+
+  /// Obtiene el historial completo de alertas de EdgeLeak AI.
+  /// Devuelve una lista de [AlertaFuga] o lanza una excepcion si algo falla.
+  static Future<List<AlertaFuga>> obtenerHistorial() async {
+    final url = Uri.parse('$_baseUrl/api/history');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'x-api-key': _apiKey,        // La llave secreta
+        'Content-Type': 'application/json',
+      },
+    ).timeout(
+      const Duration(seconds: 10),  // Maximo 10 segundos de espera
+    );
+
+    if (response.statusCode == 200) {
+      // Convierte el texto JSON en una lista de objetos Dart
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      return jsonList
+          .map((item) => AlertaFuga.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } else if (response.statusCode == 401) {
+      throw Exception('API Key incorrecta. Verifica el valor de _apiKey.');
+    } else {
+      throw Exception(
+        'Error del servidor: ${response.statusCode} — ${response.body}',
+      );
+    }
+  }
+}
+\end{lstlisting}
+
+\subsection{Paso 4 — Usar el servicio en una pantalla}
+
+Crea o edita una pantalla para mostrar el historial. Aquí un ejemplo
+completo con \texttt{FutureBuilder}:
+
+\begin{lstlisting}[style=dartStyle, caption={lib/screens/historial\_edgeleak\_screen.dart}]
+import 'package:flutter/material.dart';
+import '../services/edgeleak_service.dart';
+import '../models/alerta_fuga.dart';
+
+class HistorialEdgeLeakScreen extends StatefulWidget {
+  const HistorialEdgeLeakScreen({super.key});
+
+  @override
+  State<HistorialEdgeLeakScreen> createState() =>
+      _HistorialEdgeLeakScreenState();
+}
+
+class _HistorialEdgeLeakScreenState
+    extends State<HistorialEdgeLeakScreen> {
+
+  // Future que guarda el resultado de la peticion a la API
+  late Future<List<AlertaFuga>> _futureHistorial;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarHistorial();
+  }
+
+  void _cargarHistorial() {
+    setState(() {
+      _futureHistorial = EdgeLeakService.obtenerHistorial();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Historial EdgeLeak AI'),
+        actions: [
+          // Boton para refrescar la lista
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _cargarHistorial,
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<AlertaFuga>>(
+        future: _futureHistorial,
+        builder: (context, snapshot) {
+
+          // Mientras espera la respuesta, muestra un indicador
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Si hubo un error, lo muestra con opcion de reintentar
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No se pudo conectar a EdgeLeak AI.\n'
+                    'Verifica que ambos dispositivos esten\n'
+                    'en la misma red Wi-Fi.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Reintentar'),
+                    onPressed: _cargarHistorial,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final alertas = snapshot.data ?? [];
+
+          if (alertas.isEmpty) {
+            return const Center(
+              child: Text('No hay alertas registradas aun.'),
+            );
+          }
+
+          // Muestra la lista de alertas
+          return ListView.builder(
+            itemCount: alertas.length,
+            padding: const EdgeInsets.all(8),
+            itemBuilder: (context, index) {
+              final alerta = alertas[index];
+              return _tarjetaAlerta(alerta);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tarjetaAlerta(AlertaFuga alerta) {
+    // Color segun severidad
+    final Color color = switch (alerta.severidad) {
+      'Critica' => Colors.red,
+      'Alta'    => Colors.orange,
+      'Media'   => Colors.amber,
+      _         => Colors.green,
+    };
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      child: ListTile(
+        leading: Icon(
+          alerta.esFuga ? Icons.water_drop : Icons.check_circle,
+          color: color,
+          size: 36,
+        ),
+        title: Text(
+          alerta.veredicto,
+          style: TextStyle(fontWeight: FontWeight.bold, color: color),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Severidad: ${alerta.severidad}'),
+            Text(alerta.mensaje, maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(
+              '${alerta.timestamp.day}/${alerta.timestamp.month}/'
+              '${alerta.timestamp.year}  '
+              '${alerta.timestamp.hour}:${alerta.timestamp.minute.toString()
+              .padLeft(2, "0")}',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+        isThreeLine: true,
+      ),
+    );
+  }
+}
+\end{lstlisting}
+
+\subsection{Paso 5 — Guardar en Firebase (opcional pero recomendado)}
+
+Si quieres sincronizar los datos de EdgeLeak AI con tu Firebase para
+tenerlos disponibles aunque los dispositivos no estén en la misma red,
+puedes hacer esto después de obtener el historial:
+
+\begin{lstlisting}[style=dartStyle, caption={Sincronización con Firebase Firestore}]
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Dentro de tu clase o controlador:
+Future<void> sincronizarConFirebase() async {
+  final alertas = await EdgeLeakService.obtenerHistorial();
+  final db = FirebaseFirestore.instance;
+  final coleccion = db.collection('historial_edgeleak');
+
+  // Sube cada alerta a Firestore usando el id como documento
+  for (final alerta in alertas) {
+    await coleccion.doc(alerta.id.toString()).set({
+      'veredicto':  alerta.veredicto,
+      'severidad':  alerta.severidad,
+      'mensaje':    alerta.mensaje,
+      'timestamp':  alerta.timestamp.toIso8601String(),
+      'esFuga':     alerta.esFuga,
+      'sincronizadoEn': FieldValue.serverTimestamp(),
+    });
+  }
+}
+\end{lstlisting}
+
+\begin{tcolorbox}[infobox, title={\faLightbulb\ Tip — IP dinámica con Firebase Remote Config}]
+  Guarda la IP de EdgeLeak AI como un parámetro en Firebase Remote Config
+  (ej. \texttt{edgeleak\_ip = "192.168.1.45"}). Así, cuando la IP cambie, el
+  administrador la actualiza en Firebase y tu app la lee automáticamente sin
+  necesidad de publicar una nueva versión.
+
+  \begin{lstlisting}[style=dartStyle]
+final remoteConfig = FirebaseRemoteConfig.instance;
+await remoteConfig.fetchAndActivate();
+final ip = remoteConfig.getString('edgeleak_ip');
+  \end{lstlisting}
+\end{tcolorbox}
+
+% ============================================================
+\section{Prueba rápida antes de codificar}
+% ============================================================
+
+Antes de escribir código, puedes verificar que la conexión funciona usando
+\textbf{Postman} o la herramienta \textbf{curl} desde una terminal:
+
+\subsection{Con Postman}
+
+\begin{enumerate}[leftmargin=*, label=\arabic*.)]
+  \item Crea una nueva petición de tipo \textbf{GET}.
+  \item En la URL escribe: \texttt{http://192.168.1.45:8080/api/history}
+        (cambia la IP según corresponda).
+  \item Ve a la pestaña \textbf{Headers} y agrega:
+        \begin{itemize}
+          \item Key: \texttt{x-api-key}
+          \item Value: \texttt{edgeleak-share-2024}
+        \end{itemize}
+  \item Haz clic en \textbf{Send}.
+  \item Deberías ver la respuesta JSON con la lista de alertas.
+\end{enumerate}
+
+\subsection{Con curl (terminal)}
+
+\begin{lstlisting}[style=httpStyle, caption={Comando curl de prueba}]
+curl -X GET "http://192.168.1.45:8080/api/history" \
+     -H "x-api-key: edgeleak-share-2024"
+\end{lstlisting}
+
+% ============================================================
+\section{Resumen rápido de referencia}
+% ============================================================
+
+\begin{center}
+\begin{tabular}{l l}
+  \toprule
+  \textbf{Parámetro}       & \textbf{Valor} \\
+  \midrule
+  Protocolo              & HTTP/1.1 \\
+  Puerto                 & 8080 \\
+  Endpoint historial     & \texttt{GET /api/history} \\
+  Header de autenticación& \texttt{x-api-key} \\
+  Valor de la llave      & \texttt{edgeleak-share-2024} \\
+  Formato de respuesta   & JSON (arreglo de objetos) \\
+  Timeout recomendado    & 10 segundos \\
+  Red requerida          & Wi-Fi local compartida \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.5cm}
+
+\begin{tcolorbox}[successbox, title={\faCheckCircle\ Lista de verificación antes del primer intento}]
+  \begin{itemize}[leftmargin=*, label=\checkmark]
+    \item Ambos dispositivos están conectados a la misma red Wi-Fi.
+    \item Tienes la IP actual del celular con EdgeLeak AI.
+    \item El header \texttt{x-api-key: edgeleak-share-2024} está incluido.
+    \item La URL termina en \texttt{/api/history} (no \texttt{/api/historial}).
+    \item La app de EdgeLeak AI está abierta y en la pantalla del dashboard.
+    \item Probaste la conexión con Postman antes de codificar.
+  \end{itemize}
+\end{tcolorbox}
+
+% ============================================================
+\section{Preguntas frecuentes}
+% ============================================================
+
+\begin{description}[style=nextline, leftmargin=0pt]
+
+  \item[\faQuestionCircle\ ¿Qué pasa si la app de EdgeLeak AI está cerrada?]
+  El servidor HTTP se apaga cuando la app se cierra. Debes tener EdgeLeak AI
+  abierta (en la pantalla del dashboard) para que las peticiones funcionen.
+
+  \item[\faQuestionCircle\ ¿Puedo conectarme desde internet (fuera de la red Wi-Fi)?]
+  No directamente. El servidor solo escucha en la red local. Para acceso
+  remoto necesitarías configurar un túnel o sincronizar los datos en Firebase
+  (ver Paso 5 de la Sección 7).
+
+  \item[\faQuestionCircle\ ¿Cuántas alertas devuelve el endpoint?]
+  Devuelve \textbf{todas} las alertas almacenadas en el dispositivo, sin límite.
+  Si necesitas paginación, coordínalo con el equipo de EdgeLeak AI para una
+  versión futura de la API.
+
+  \item[\faQuestionCircle\ ¿Qué significa el campo \texttt{timestamp}?]
+  Es la fecha y hora en que se registró la alerta, en formato ISO 8601
+  (estándar internacional). Ejemplo: \texttt{2025-04-28T14:32:10.123} significa
+  28 de abril de 2025 a las 2:32 PM. Puedes parsearlo con
+  \texttt{DateTime.parse()} en Dart.
+
+  \item[\faQuestionCircle\ ¿Qué hago si recibo error 401?]
+  Revisa que el header \texttt{x-api-key} esté presente en la petición y que
+  el valor sea exactamente \texttt{edgeleak-share-2024} (sin espacios
+  adicionales, distingue mayúsculas y minúsculas).
+
+  \item[\faQuestionCircle\ ¿El campo \texttt{id} es único?]
+  Sí. Es un número que se incrementa automáticamente en la base de datos de
+  EdgeLeak AI. Puedes usarlo como identificador único al guardar en Firestore.
+
+\end{description}
+
+% ============================================================
+\section*{Contacto y soporte}
+% ============================================================
+\addcontentsline{toc}{section}{Contacto y soporte}
+
+Para dudas sobre esta integración, reportar problemas o solicitar nuevas
+funcionalidades en la API, comunícate directamente con el equipo de
+\textbf{EdgeLeak AI} a través de los canales del Proyecto Integrador (PICUR)
+de la Corporación Universitaria Remington.
+
+\vspace{1cm}
+\begin{center}
+  {\color{edgeblue}\rule{0.5\linewidth}{0.8pt}}\\[0.3cm]
+  {\color{edgegray}\small Documento generado para uso del equipo externo de integración.\\
+  EdgeLeak AI — PICUR, Corporación Universitaria Remington — \the\year}
+\end{center}
+
+\end{document}
