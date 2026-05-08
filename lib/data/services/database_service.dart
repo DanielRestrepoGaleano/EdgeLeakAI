@@ -7,7 +7,12 @@ import '../models/historial_mensual_model.dart';
 import '../models/usuario_model.dart';
 
 class DatabaseService {
-  static Database? _database;
+  Database? _database;
+
+  /// Path opcional usado en tests para reemplazar la ruta de producción.
+  final String? _testDbPath;
+
+  DatabaseService({String? testDbPath}) : _testDbPath = testDbPath;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -16,11 +21,12 @@ class DatabaseService {
   }
 
   Future<Database> _initDB() async {
-    String path = join(await getDatabasesPath(), 'edgeleak_v5.db');
+    final String path =
+        _testDbPath ?? join(await getDatabasesPath(), 'edgeleak_v6.db');
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE historial(
@@ -52,7 +58,8 @@ class DatabaseService {
             ruido INTEGER,
             flujo REAL,
             estado TEXT,
-            timestamp TEXT
+            timestamp TEXT,
+            picos INTEGER DEFAULT 0
           )
         ''');
 
@@ -139,6 +146,12 @@ class DatabaseService {
               resumen_json TEXT
             )
           ''');
+        }
+        if (oldVersion < 6) {
+          // Migración v5 → v6: añadir campo picos a lecturas_raw
+          await db.execute(
+            'ALTER TABLE lecturas_raw ADD COLUMN picos INTEGER DEFAULT 0',
+          );
         }
       },
     );

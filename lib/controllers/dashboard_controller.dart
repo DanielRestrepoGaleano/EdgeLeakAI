@@ -9,17 +9,25 @@ import '../data/services/local_api_service.dart';
 import '../data/services/email_service.dart';
 import '../data/services/ruido_filter_service.dart';
 import '../data/services/baseline_service.dart';
+import '../config/time_provider.dart';
 
 class DashboardController extends ChangeNotifier {
-  final GroqApiService _apiService = GroqApiService();
-  final DatabaseService _dbService = DatabaseService();
-  final EmailService _emailService = EmailService();
-  final RuidoFilterService _ruidoFilter = RuidoFilterService();
+  final GroqApiService _apiService;
+  final DatabaseService _dbService;
+  final EmailService _emailService;
+  final RuidoFilterService _ruidoFilter;
   late final BaselineService _baselineService;
   late final LocalApiService _localApiService;
 
+  /// Proveedor de tiempo inyectable para habilitar time-travelling en tests.
+  final TimeProvider _clock;
+
   double caudalActual = 0.0;
   int ruidoActual = 0;
+
+  /// Último valor de picos acústicos recibido del ESP32.
+  int picosActual = 0;
+
   bool conectado = true;
   bool iaProcesando = false;
 
@@ -49,20 +57,49 @@ class DashboardController extends ChangeNotifier {
   List<Map<String, dynamic>> get bufferLecturas =>
       List.unmodifiable(_bufferLecturas);
 
-  // --- Regla de los 3 Strikes ---
+  // --- Regla de los 3 Strikes (anomalía/fuga basada en flujo o ruido) ---
   int strikesFuga = 0;
+
+  // --- Strikes nocturnos (lógica nocturna v2 basada en picos acústicos) ---
+  int strikesNocturnos = 0;
 
   // Umbrales de Sensor Fusion
   static const double _umbralFlujoAnomalia = 0.5;
   static const double _umbralFlujoFuga = 5.0;
 
-  DashboardController() {
-    _baselineService = BaselineService(_dbService);
-    _localApiService = LocalApiService(
-      onProcesarLectura: procesarLecturaSensor,
-      onEstadoActual: () => _estadoActual.etiqueta,
-      dbService: _dbService,
-    );
+  // ── Ventana de picos para lógica nocturna v2 ────────────────────────────────
+
+  final List<({DateTime timestamp, int picos})> _picosVentana = [];
+  static const Duration _duracionVentanaPicos = Duration(seconds: 60);
+
+  /// Umbral de micro-picos acústicos en ventana de 60 s para activar la
+  /// detección de goteo nocturno silencioso.
+  ///
+  /// Calibración empírica: distingue ruido ambiental (~800–900 ADC,
+  /// ≤ 10 picos/60 s) de goteo real en boquilla sin caudal (≥ 12 picos/60 s
+  /// a las 3:00 AM con flujo == 0.0). Ver tests 37, 38, 45, 46.
+  static const int umbralPicosNocturnos = 12;
+
+  DashboardController({
+    GroqApiService? groqApiService,
+    DatabaseService? dbService,
+    EmailService? emailService,
+    RuidoFilterService? ruidoFilter,
+    BaselineService? baselineService,
+    LocalApiService? localApiService,
+    TimeProvider? clock,
+  })  : _apiService = groqApiService ?? GroqApiService(),
+        _dbService = dbService ?? DatabaseService(),
+        _emailService = emailService ?? EmailService(),
+        _ruidoFilter = ruidoFilter ?? RuidoFilterService(),
+        _clock = clock ?? DateTime.now {
+    _baselineService = baselineService ?? BaselineService(_dbService);
+    _localApiService = localApiService ??
+        LocalApiService(
+          onProcesarLectura: procesarLecturaSensor,
+          onEstadoActual: () => _estadoActual.etiqueta,
+          dbService: _dbService,
+        );
     _localApiService.iniciar();
     _baselineService.iniciar();
   }
@@ -180,21 +217,47 @@ class DashboardController extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
+  // Ventana de picos (lógica nocturna v2)
+  // ---------------------------------------------------------------------------
+
+  void _actualizarVentanaPicos(int picos, DateTime ahora) {
+    _picosVentana.add((timestamp: ahora, picos: picos));
+    _picosVentana.removeWhere(
+        (e) => ahora.difference(e.timestamp) > _duracionVentanaPicos);
+  }
+
+  int _sumaPicosVentana() =>
+      _picosVentana.fold(0, (sum, e) => sum + e.picos);
+
+  /// Retorna [true] si se cumplen las condiciones de la Lógica Nocturna v2:
+  /// - Hora nocturna (0:00–6:00 exclusive).
+  /// - Flujo == 0.0 (el sensor de flujo no reacciona al goteo silencioso).
+  /// - Suma de picos en la ventana de 60 s supera [umbralPicosNocturnos].
+  bool _esAnomaliaNoct_v2(double flujo, DateTime ahora) {
+    final hora = ahora.hour;
+    final esNoche = hora >= 0 && hora < 6;
+    if (!esNoche || flujo != 0.0) return false;
+    return _sumaPicosVentana() > umbralPicosNocturnos;
+  }
+
+  // ---------------------------------------------------------------------------
   // Máquina de estados de 3 niveles + filtro de ruido + baseline
   // ---------------------------------------------------------------------------
 
-  /// Clasifica el estado del sensor aplicando la jerarquía de 3 niveles y el
-  /// filtro de ruido digital. La lógica nocturna se delega en [RuidoFilterService].
-  EstadoSensor _clasificarEstado(int ruido, double flujo) {
+  /// Clasifica el estado del sensor aplicando la jerarquía de 3 niveles,
+  /// el filtro de ruido digital y la lógica nocturna v2 basada en picos.
+  EstadoSensor _clasificarEstado(
+      int ruido, double flujo, bool anomaliaNoctV2) {
     // Nivel 3: Fuga activa — caudal crítico, sin importar el ruido
     if (flujo > _umbralFlujoFuga) return EstadoSensor.fuga;
 
     // Análisis de patrón de ruido
     final resultadoRuido = _ruidoFilter.clasificar(ruido, flujo);
 
-    // Nivel 2: Anomalía — flujo intermedio O patrón de goteo
+    // Nivel 2: Anomalía — flujo intermedio, patrón de goteo ADC, o lógica nocturna
     if (flujo > _umbralFlujoAnomalia ||
-        resultadoRuido == ResultadoRuido.patronGoteo) {
+        resultadoRuido == ResultadoRuido.patronGoteo ||
+        anomaliaNoctV2) {
       return EstadoSensor.anomalia;
     }
 
@@ -202,24 +265,38 @@ class DashboardController extends ChangeNotifier {
     return EstadoSensor.normal;
   }
 
-  Future<void> procesarLecturaSensor(int ruido, double flujo) async {
-    final DateTime timestampLectura = DateTime.now();
+  Future<void> procesarLecturaSensor(int ruido, double flujo, int picos) async {
+    final DateTime timestampLectura = _clock();
 
     ruidoActual = ruido;
     caudalActual = flujo;
+    picosActual = picos;
     conectado = true;
 
+    // Actualizar ventana de picos antes de clasificar
+    _actualizarVentanaPicos(picos, timestampLectura);
+    final bool anomaliaNoctV2 = _esAnomaliaNoct_v2(flujo, timestampLectura);
+
     // 1. Clasificar estado con la máquina de 3 niveles
-    final EstadoSensor nuevoEstado = _clasificarEstado(ruido, flujo);
+    final EstadoSensor nuevoEstado =
+        _clasificarEstado(ruido, flujo, anomaliaNoctV2);
     final bool cambioDeEstado = nuevoEstado != _estadoActual;
 
     _estadoActual = nuevoEstado;
 
-    // 2. Regla de los 3 Strikes (para Anomalía y Fuga)
+    // 2. Actualizar contadores de strikes
     if (nuevoEstado != EstadoSensor.normal) {
-      strikesFuga++;
+      if (anomaliaNoctV2) {
+        // Ruta nocturna por picos: usa su propio contador
+        strikesNocturnos++;
+      } else {
+        // Ruta regular (flujo/ruido/ADC): incrementa el contador general
+        strikesFuga++;
+        strikesNocturnos = 0;
+      }
     } else {
       strikesFuga = 0;
+      strikesNocturnos = 0;
     }
 
     // ⚡ Notificar INMEDIATAMENTE para que la UI refleje el estado en tiempo real
@@ -235,29 +312,42 @@ class DashboardController extends ChangeNotifier {
       });
     }
 
-    // 4. Invocar IA solo por evento (desviación del baseline O 3 strikes), no por polling
+    // 4a. Invocar IA — Ruta regular (desviación del baseline o Fuga directa)
     final bool desviaBaseline =
         _baselineService.esDesviacionSignificativa(ruido, flujo);
 
-    if ((strikesFuga >= 3 || (cambioDeEstado && nuevoEstado == EstadoSensor.fuga)) &&
+    if ((strikesFuga >= 3 ||
+            (cambioDeEstado && nuevoEstado == EstadoSensor.fuga)) &&
         !iaProcesando &&
         desviaBaseline) {
       if (nuevoEstado != EstadoSensor.normal) {
         strikesFuga = 0;
-        _invocarGroqPorEvento(ruido, flujo, nuevoEstado, timestampLectura)
+        _invocarGroqPorEvento(ruido, flujo, picos, nuevoEstado,
+                timestampLectura, esNocturno: false)
             .catchError((e) {
           debugPrint('[DashboardController] Error al llamar a Groq: $e');
         });
       }
     }
 
-    // 5. Guardar lectura cruda en BD con el estado real (no siempre 'Normal')
+    // 4b. Invocar IA — Ruta nocturna por picos (3 strikes nocturnos)
+    if (strikesNocturnos >= 3 && !iaProcesando) {
+      strikesNocturnos = 0;
+      _invocarGroqPorEvento(ruido, flujo, picos, EstadoSensor.anomalia,
+              timestampLectura, esNocturno: true)
+          .catchError((e) {
+        debugPrint('[DashboardController] Error al llamar a Groq nocturno: $e');
+      });
+    }
+
+    // 5. Guardar lectura cruda en BD con el estado real y picos
     await _dbService.insertarLecturaRaw(
       LecturaRawModel(
         ruido: ruido,
         flujo: flujo,
         estado: nuevoEstado.etiqueta,
         timestamp: timestampLectura,
+        picos: picos,
       ),
     );
 
@@ -265,6 +355,7 @@ class DashboardController extends ChangeNotifier {
     _bufferLecturas.add({
       'ruido': ruido,
       'flujo': flujo,
+      'picos': picos,
       'estado': nuevoEstado.etiqueta,
       'timestamp': timestampLectura.toIso8601String(),
     });
@@ -280,9 +371,11 @@ class DashboardController extends ChangeNotifier {
   Future<void> _invocarGroqPorEvento(
     int ruido,
     double flujo,
+    int picos,
     EstadoSensor estadoLocal,
-    DateTime timestamp,
-  ) async {
+    DateTime timestamp, {
+    bool esNocturno = false,
+  }) async {
     iaProcesando = true;
     ultimaAlerta = null;
     notifyListeners();
@@ -301,11 +394,15 @@ class DashboardController extends ChangeNotifier {
         if (_baselineService.ruidoBaselineActual != null)
           'ruido_baseline':
               _baselineService.ruidoBaselineActual!.toStringAsFixed(0),
+        'picos': picos,
+        'suma_picos_ventana': _sumaPicosVentana(),
+        'periodo_activo': esNocturno ? 'nocturno' : 'diurno',
       };
 
       final lectura = LecturaSensorModel(
         caudalLPM: flujo,
         ruido: ruido,
+        picos: picos,
         timestamp: timestamp,
       );
 
@@ -369,4 +466,3 @@ class DashboardController extends ChangeNotifier {
     super.dispose();
   }
 }
-

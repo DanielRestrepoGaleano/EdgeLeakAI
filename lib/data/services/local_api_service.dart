@@ -15,7 +15,8 @@ String get _kApiKey => dotenv.env['LOCAL_API_KEY'] ?? 'edgeleak-share-2024';
 
 /// Tipo de callback que el DashboardController expone para recibir lecturas
 /// del sensor ESP32 y ejecutar la lógica de Sensor Fusion.
-typedef ProcesarLecturaCallback = Future<void> Function(int ruido, double flujo);
+typedef ProcesarLecturaCallback = Future<void> Function(
+    int ruido, double flujo, int picos);
 
 /// Tipo de callback para obtener el estado actual de fusión del sensor,
 /// utilizado en la respuesta del endpoint POST /api/sensor.
@@ -151,10 +152,10 @@ class LocalApiService {
       }
 
       debugPrint(
-          '📡 LocalApiService → ruido=${dto.ruido}, flujo=${dto.flujo.toStringAsFixed(3)} L/min');
+          '📡 LocalApiService → ruido=${dto.ruido}, flujo=${dto.flujo.toStringAsFixed(3)} L/min, picos=${dto.picos}');
 
       try {
-        await _onProcesarLectura(dto.ruido, dto.flujo);
+        await _onProcesarLectura(dto.ruido, dto.flujo, dto.picos);
       } catch (e) {
         debugPrint('❌ LocalApiService error en callback del controlador: $e');
       }
@@ -164,6 +165,7 @@ class LocalApiService {
         'estado': _onEstadoActual(),
         'ruido': dto.ruido,
         'flujo': dto.flujo,
+        'picos': dto.picos,
       });
     } on FormatException {
       await _responder(

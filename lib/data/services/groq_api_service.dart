@@ -13,16 +13,21 @@ import '../models/lectura_sensor_model.dart';
 /// polling periódico.
 ///
 /// El payload incluye:
-/// - La lectura anómala actual (flujo + ruido).
+/// - La lectura anómala actual (flujo + ruido + picos).
 /// - El estado clasificado localmente ([EstadoSensor]).
 /// - Un resumen contextual de los últimos días (baseline + historial).
+/// - Los picos acústicos y la suma de la ventana de 60 s.
 ///
 /// La IA devuelve uno de los tres estados canónicos: Normal, Anomalía o Fuga.
 class GroqApiService {
+  final http.Client _client;
+
+  GroqApiService({http.Client? client}) : _client = client ?? http.Client();
+
   /// Analiza una lectura anómala con contexto histórico y devuelve el veredicto
   /// definitivo de la IA clasificado en los tres estados del sistema.
   ///
-  /// [lectura] contiene el caudal y el nivel de ruido actuales.
+  /// [lectura] contiene el caudal, el nivel de ruido y los micro-picos actuales.
   /// [estadoLocal] es la clasificación previa realizada por el procesamiento edge.
   /// [contexto] es un mapa con el resumen histórico para que la IA tenga referencia.
   Future<AlertaFugaModel> analizarConContexto({
@@ -62,6 +67,7 @@ class GroqApiService {
               "LECTURA ANÓMALA DETECTADA:\n"
               "  - Caudal actual: ${lectura.caudalLPM.toStringAsFixed(3)} L/min\n"
               "  - Ruido actual: ${lectura.ruido} ADC\n"
+              "  - Picos acústicos: ${lectura.picos}\n"
               "  - Clasificación edge: ${estadoLocal.etiqueta}\n\n"
               "CONTEXTO HISTÓRICO (últimos días):\n$contextoTexto\n\n"
               "PARÁMETROS DE REFERENCIA:\n"
@@ -76,10 +82,10 @@ class GroqApiService {
 
     debugPrint('=== INICIANDO PETICIÓN A GROQ (event-driven) ===');
     debugPrint(
-        'Estado local: ${estadoLocal.etiqueta} | flujo: ${lectura.caudalLPM} | ruido: ${lectura.ruido}');
+        'Estado local: ${estadoLocal.etiqueta} | flujo: ${lectura.caudalLPM} | ruido: ${lectura.ruido} | picos: ${lectura.picos}');
 
     try {
-      final response = await http.post(
+      final response = await _client.post(
         url,
         headers: {
           'Authorization': 'Bearer $apiKey',
@@ -98,9 +104,9 @@ class GroqApiService {
 
         // Normalizar el veredicto a los valores canónicos del sistema
         jsonResponse['veredicto'] =
-            _normalizarVeredicto(jsonResponse['veredicto'] as String? ?? '');
+            normalizarVeredicto(jsonResponse['veredicto'] as String? ?? '');
         jsonResponse['severidad'] =
-            _normalizarSeveridad(jsonResponse['severidad'] as String? ?? '');
+            normalizarSeveridad(jsonResponse['severidad'] as String? ?? '');
 
         debugPrint(
             '✅ Groq → veredicto: ${jsonResponse['veredicto']} | severidad: ${jsonResponse['severidad']}');
@@ -150,6 +156,18 @@ class GroqApiService {
           'Baseline actual: flujo=$flujoBase L/min | ruido=$ruidoBase ADC');
     }
 
+    final picos = contexto['picos'];
+    final sumaPicos = contexto['suma_picos_ventana'];
+    if (picos != null) {
+      buffer.writeln(
+          'Picos acústicos (lectura actual): $picos | Suma ventana 60 s: $sumaPicos');
+    }
+
+    final periodoActivo = contexto['periodo_activo'] as String?;
+    if (periodoActivo != null) {
+      buffer.writeln('Período activo: $periodoActivo');
+    }
+
     if (buffer.isEmpty) {
       buffer.writeln('Sin historial disponible (sistema nuevo o datos insuficientes).');
     }
@@ -157,7 +175,9 @@ class GroqApiService {
     return buffer.toString();
   }
 
-  String _normalizarVeredicto(String raw) {
+  /// Normaliza el veredicto devuelto por Groq a los valores canónicos del sistema.
+  @visibleForTesting
+  String normalizarVeredicto(String raw) {
     final lower = raw.toLowerCase();
     if (lower.contains('fuga')) return EstadoSensor.fuga.veredicto;
     if (lower.contains('anomal') || lower.contains('advertencia')) {
@@ -166,7 +186,9 @@ class GroqApiService {
     return EstadoSensor.normal.veredicto;
   }
 
-  String _normalizarSeveridad(String raw) {
+  /// Normaliza la severidad devuelta por Groq a los valores canónicos del sistema.
+  @visibleForTesting
+  String normalizarSeveridad(String raw) {
     final lower = raw.toLowerCase();
     if (lower.contains('crít') || lower.contains('critic')) {
       return EstadoSensor.fuga.severidad;

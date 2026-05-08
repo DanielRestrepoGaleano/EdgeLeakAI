@@ -7,12 +7,17 @@ class LecturaRawModel {
   final String estado;
   final DateTime timestamp;
 
+  /// Número de micro-picos acústicos contados por el ESP32 en el intervalo.
+  /// Siempre ≥ 0; valor predeterminado 0 para compatibilidad con la v5.
+  final int picos;
+
   const LecturaRawModel({
     this.id,
     required this.ruido,
     required this.flujo,
     required this.estado,
     required this.timestamp,
+    this.picos = 0,
   });
 
   factory LecturaRawModel.fromMap(Map<String, dynamic> map) {
@@ -22,14 +27,16 @@ class LecturaRawModel {
       flujo: (map['flujo'] as num).toDouble(),
       estado: map['estado'] as String? ?? 'Sin Clasificar',
       timestamp: DateTime.parse(map['timestamp'] as String),
+      picos: (map['picos'] as num?)?.toInt() ?? 0,
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'ruido': ruido,
-    'flujo': flujo,
-    'estado': estado,
-    'timestamp': timestamp.toIso8601String(),
-  };
+        'id': id,
+        'ruido': ruido,
+        'flujo': flujo,
+        'estado': estado,
+        'timestamp': timestamp.toIso8601String(),
+        'picos': picos,
+      };
 }

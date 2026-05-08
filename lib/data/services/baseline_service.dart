@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/lectura_raw_model.dart';
 import '../models/lectura_resumen_model.dart';
 import '../models/historial_mensual_model.dart';
+import '../../config/time_provider.dart';
 import 'database_service.dart';
 
 /// Servicio de perfilado de usuario en segundo plano.
@@ -49,11 +50,15 @@ class BaselineService {
 
   Timer? _timerAgregacion;
 
+  /// Proveedor de tiempo inyectable para habilitar time-travelling en tests.
+  final TimeProvider _clock;
+
   // ---------------------------------------------------------------------------
   // Ciclo de vida
   // ---------------------------------------------------------------------------
 
-  BaselineService(this._db);
+  BaselineService(this._db, {TimeProvider? clock})
+      : _clock = clock ?? DateTime.now;
 
   /// Inicia el servicio: construye el baseline inicial y programa el job de
   /// agregación periódico.
@@ -128,7 +133,7 @@ class BaselineService {
   bool esDesviacionSignificativa(int ruido, double flujo) {
     if (!_baselineListo) return true; // Sin baseline: conservar y escalar
 
-    final esNoche = !_esDia(DateTime.now());
+    final esNoche = !_esDia(_clock());
 
     final flujoBase = esNoche
         ? (_baselineFlujoPromedioNoche ?? flujo)
@@ -155,7 +160,7 @@ class BaselineService {
   /// está disponible.
   double? get flujoBaselineActual {
     if (!_baselineListo) return null;
-    return _esDia(DateTime.now())
+    return _esDia(_clock())
         ? _baselineFlujoPromedioDia
         : _baselineFlujoPromedioNoche;
   }
@@ -164,7 +169,7 @@ class BaselineService {
   /// está disponible.
   double? get ruidoBaselineActual {
     if (!_baselineListo) return null;
-    return _esDia(DateTime.now())
+    return _esDia(_clock())
         ? _baselineRuidoPromedioDia
         : _baselineRuidoPromedioNoche;
   }
@@ -189,7 +194,7 @@ class BaselineService {
   }
 
   Future<void> _agregarLecturasEnResumen() async {
-    final fechaFin = DateTime.now();
+    final fechaFin = _clock();
     final fechaInicio = fechaFin.subtract(const Duration(days: 5));
 
     final lecturas = await _db.obtenerLecturasRawEnRango(

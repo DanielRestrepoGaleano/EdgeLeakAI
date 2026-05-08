@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../config/time_provider.dart';
 
 /// Resultado del análisis del filtro digital de ruido.
 enum ResultadoRuido {
@@ -64,6 +65,11 @@ class RuidoFilterService {
 
   final List<_MuestraRuido> _ventana = [];
 
+  /// Proveedor de tiempo inyectable para habilitar time-travelling en tests.
+  final TimeProvider _clock;
+
+  RuidoFilterService({TimeProvider? clock}) : _clock = clock ?? DateTime.now;
+
   // ---------------------------------------------------------------------------
   // API pública
   // ---------------------------------------------------------------------------
@@ -115,7 +121,7 @@ class RuidoFilterService {
   // ---------------------------------------------------------------------------
 
   void _agregarMuestra(int valor) {
-    final ahora = DateTime.now();
+    final ahora = _clock();
     _ventana.add(_MuestraRuido(valor, ahora));
 
     // Eliminar muestras fuera de la ventana temporal
@@ -133,7 +139,7 @@ class RuidoFilterService {
   /// - Ruido promedio de la ventana superior al silencio base
   /// - Ventana con suficientes muestras para ser estadísticamente válida
   bool _esAnomaliaNoct(double flujo) {
-    final hora = DateTime.now().hour;
+    final hora = _clock().hour;
     final esNoche = hora >= _horaInicioNoche && hora < _horaFinNoche;
 
     if (!esNoche || flujo > 0.0 || _ventana.length < 3) return false;
