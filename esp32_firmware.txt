@@ -1,131 +1,149 @@
-/*
- * ============================================================
- *  EdgeLeak AI v2.1 — Firmware ESP32
- *  Sensores: KY-037 (Micrófono) + YF-S201 (Flujo de Agua)
- *  Plataforma: Arduino IDE con soporte ESP32
- * ============================================================
- *  INSTRUCCIONES DE INSTALACIÓN:
- *  1. En Arduino IDE, instalar librería "ArduinoJson" (Board: ESP32 Dev Module).
- *  2. Sustituir <SSID_WIFI> y <PASSWORD_WIFI> con los datos de tu red.
- *  3. Sustituir <IP_CELULAR> con la IP local del teléfono que ejecuta la app Flutter.
- *     (Puedes verla en Ajustes > Wi-Fi > Detalles de la red).
- *  4. Cargar el sketch al ESP32.
- * ============================================================
- */
-
+#include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>
 
-// ── Configuración Wi-Fi ──────────────────────────────────────────────────────
-const char* SSID     = "<SSID_WIFI>";
-const char* PASSWORD = "<PASSWORD_WIFI>";
+// =================================================
+// SCRIPT FINAL v3.0: EdgeLeak AI (Telemetry Node con Detección de Patrones)
+// =================================================
 
-// ── Endpoint del servidor Flutter ───────────────────────────────────────────
-const char* SERVER_URL = "http://<IP_CELULAR>:8080/api/sensor";
-const char* API_KEY    = "edgeleak-share-2024";
+// --- Configuración de Red y API ---
+const char* ssid     = "DANIEL";          // CAMBIAR
+const char* password = "43723298";        // CAMBIAR
+const char* apiUrl   = "http://192.168.1.2:8080/api/sensor"; 
+const char* apiKey   = "edgeleak-share-2024";
 
-// ── Pines de sensores ────────────────────────────────────────────────────────
-#define PIN_MICROFONO  34   // KY-037 — Salida analógica (ADC)
-#define PIN_FLUJO      32   // YF-S201 — Salida digital de pulsos
+// --- Mapeo de Pines (ESP32 de 30 pines) ---
+const int PIN_SENSOR_FLUJO = 32;   
+const int PIN_RUIDO_ANALOG = 34;   
+const int PIN_RUIDO_DIGITAL = 35;  
 
-// ── Variables de flujo ───────────────────────────────────────────────────────
-volatile uint32_t contadorPulsos = 0;
-float             litrosPorMinuto = 0.0;
+// --- Constantes de Calibración ---
+const float FACTOR_CALIBRACION = 450.0; 
+const int INTERVALO_LECTURA = 5000; // 5 segundos
 
-// Factor de calibración del YF-S201:
-// Frecuencia (Hz) = pulsos/segundo; flujo (L/min) = frecuencia / 7.5
-// Para un intervalo de 5 s: L/min = (pulsos / 5) / 7.5 = pulsos / 37.5
-// Equivalente a dividir por el factor 450 / 60 = 7.5 → guardamos 450.0 para
-// calcular con el periodo completo de muestreo en segundos.
-const float FACTOR_CALIBRACION = 450.0;
+// --- Variables Globales de Flujo ---
+volatile int contadorPulsos = 0; 
+float caudalLitrosPorMinuto = 0.0; 
+unsigned long tiempoAnterior = 0;  
 
-// Intervalo de envío (ms)
-const unsigned long INTERVALO_MS = 5000;
-unsigned long ultimoEnvio = 0;
+// --- Variables Globales de Patrón de Ruido (Goteo) ---
+float promedioSilencio = 1100.0; // Inicia en el piso de ruido calibrado
+int picosDetectados = 0;
+unsigned long ultimaGota = 0;
+const int UMBRAL_SENSIBILIDAD = 150; // Diferencia para considerar un "pico"
+const unsigned long DEBOUNCE_GOTEO = 200; // Evita contar el mismo ruido múltiple veces (ms)
 
-// ── ISR: Interrupción por flanco de bajada en el sensor de flujo ─────────────
-void IRAM_ATTR onPulsoFlujo() {
+// --- Funciones de Interrupción ---
+void IRAM_ATTR contarPulso() {
   contadorPulsos++;
 }
 
-// ── setup ────────────────────────────────────────────────────────────────────
-void setup() {
-  Serial.begin(115200);
+// --- Función para auto-calibrar el silencio y detectar goteo en tiempo real ---
+void escucharPatrones() {
+  int lecturaActual = analogRead(PIN_RUIDO_ANALOG);
+  int limiteActivacion = (int)promedioSilencio + UMBRAL_SENSIBILIDAD;
 
-  // Configurar pines
-  pinMode(PIN_MICROFONO, INPUT);           // Lectura analógica ADC
-  pinMode(PIN_FLUJO,     INPUT_PULLUP);    // Señal digital del YF-S201
-
-  // Adjuntar interrupción al sensor de flujo (flanco FALLING)
-  attachInterrupt(digitalPinToInterrupt(PIN_FLUJO), onPulsoFlujo, FALLING);
-
-  // Conectar a Wi-Fi
-  WiFi.begin(SSID, PASSWORD);
-  Serial.print("Conectando a Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  if (lecturaActual > limiteActivacion) {
+    unsigned long ahora = millis();
+    // Validar si es un pico nuevo usando debounce
+    if (ahora - ultimaGota > DEBOUNCE_GOTEO) {
+      picosDetectados++;
+      ultimaGota = ahora;
+    }
+  } else {
+    // Si hay silencio, actualizamos dinámicamente la línea base (Promedio Móvil Exponencial)
+    // Esto permite que el sistema se adapte lentamente si el ruido ambiente cambia en la noche
+    promedioSilencio = (promedioSilencio * 0.999) + (lecturaActual * 0.001);
   }
-  Serial.println("\nWi-Fi conectado. IP: " + WiFi.localIP().toString());
-
-  ultimoEnvio = millis();
 }
 
-// ── loop ─────────────────────────────────────────────────────────────────────
+// --- Función para mantener conexión robusta ---
+void verificarWiFi() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Reconectando Wi-Fi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 5000) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println();
+  }
+}
+
+// --- Cálculo de Caudal ---
+void calcularCaudal() {
+  noInterrupts(); 
+  int pulsos = contadorPulsos;
+  contadorPulsos = 0; 
+  interrupts(); 
+  caudalLitrosPorMinuto = (float)pulsos / FACTOR_CALIBRACION * (60000.0 / INTERVALO_LECTURA);
+}
+
+// --- Envío HTTP ---
+void mostrarYEnviarDatos() {
+  int nivelRuidoActual = analogRead(PIN_RUIDO_ANALOG);
+  int golpeDetectado = digitalRead(PIN_RUIDO_DIGITAL);
+  
+  // Guardamos los picos procesados en estos 5 segundos y reiniciamos el contador local
+  int picosParaEnviar = picosDetectados;
+  picosDetectados = 0;
+
+  Serial.print("Flujo: ");
+  Serial.print(caudalLitrosPorMinuto, 2);
+  Serial.print(" | Silencio Base: ");
+  Serial.print((int)promedioSilencio);
+  Serial.print(" | Ruido Inst: ");
+  Serial.print(nivelRuidoActual);
+  Serial.print(" | Picos(5s): ");
+  Serial.println(picosParaEnviar);
+
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(apiUrl);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("x-api-key", apiKey);
+
+    // NUEVO JSON CON LA VARIABLE 'picos'
+    String body = "{\"ruido\":" + String(nivelRuidoActual) + 
+                  ",\"flujo\":" + String(caudalLitrosPorMinuto, 2) + 
+                  ",\"picos\":" + String(picosParaEnviar) + "}";
+    
+    int httpResponseCode = http.POST(body);
+    if (httpResponseCode <= 0) {
+      Serial.print("Error POST: ");
+      Serial.println(http.errorToString(httpResponseCode).c_str());
+    }
+    http.end(); 
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  
+  pinMode(PIN_SENSOR_FLUJO, INPUT_PULLUP);
+  pinMode(PIN_RUIDO_ANALOG, INPUT);
+  pinMode(PIN_RUIDO_DIGITAL, INPUT);
+  attachInterrupt(digitalPinToInterrupt(PIN_SENSOR_FLUJO), contarPulso, FALLING);
+
+  Serial.println("\n=========================================");
+  Serial.println("  Iniciando EdgeLeak AI v3.0 (Pattern AI)");
+  Serial.println("=========================================\n");
+  
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println("\nIP Asignada: ");
+  Serial.println(WiFi.localIP());
+}
+
 void loop() {
-  unsigned long ahora = millis();
-
-  if (ahora - ultimoEnvio >= INTERVALO_MS) {
-    // ── 1. Leer micrófono KY-037 (promedio de 50 muestras) ────────────────
-    long sumaRuido = 0;
-    for (int i = 0; i < 50; i++) {
-      sumaRuido += analogRead(PIN_MICROFONO);
-      delayMicroseconds(200);
-    }
-    int ruidoPromedio = (int)(sumaRuido / 50);
-
-    // ── 2. Calcular caudal YF-S201 ─────────────────────────────────────────
-    // Deshabilitar interrupciones momentáneamente para leer el contador
-    noInterrupts();
-    uint32_t pulsos = contadorPulsos;
-    contadorPulsos  = 0;
-    interrupts();
-
-    // L/min = pulsos / (FACTOR_CALIBRACION * intervalo_en_segundos)
-    float intervaloSegundos = INTERVALO_MS / 1000.0;
-    litrosPorMinuto = (float)pulsos / (FACTOR_CALIBRACION / 60.0 * intervaloSegundos);
-
-    // ── 3. Mostrar en monitor serial ───────────────────────────────────────
-    Serial.printf("[EdgeLeak] Ruido ADC: %d | Flujo: %.3f L/min\n",
-                  ruidoPromedio, litrosPorMinuto);
-
-    // ── 4. Enviar HTTP POST al servidor Flutter ────────────────────────────
-    if (WiFi.status() == WL_CONNECTED) {
-      HTTPClient http;
-      http.begin(SERVER_URL);
-      http.addHeader("Content-Type",  "application/json");
-      http.addHeader("x-api-key",     API_KEY);
-
-      // Serializar JSON
-      StaticJsonDocument<128> doc;
-      doc["ruido"] = ruidoPromedio;
-      doc["flujo"] = litrosPorMinuto;
-      String payload;
-      serializeJson(doc, payload);
-
-      int httpCode = http.POST(payload);
-      if (httpCode > 0) {
-        Serial.printf("[HTTP] Respuesta: %d\n", httpCode);
-      } else {
-        Serial.printf("[HTTP] Error: %s\n", http.errorToString(httpCode).c_str());
-      }
-      http.end();
-    } else {
-      Serial.println("[Wi-Fi] Sin conexión, reintentando...");
-      WiFi.reconnect();
-    }
-
-    ultimoEnvio = ahora;
+  verificarWiFi();
+  escucharPatrones(); // El procesador escucha la acústica miles de veces por segundo
+  
+  if (millis() - tiempoAnterior > INTERVALO_LECTURA) {
+    tiempoAnterior = millis(); 
+    calcularCaudal();
+    mostrarYEnviarDatos();
   }
 }
