@@ -76,7 +76,8 @@ void main() {
   setUpAll(() {
     // Cargar dotenv con clave falsa para que GroqApiService no aborte
     // antes de llegar a la llamada HTTP en los tests de integración.
-    dotenv.testLoad(fileInput: 'GROQ_API_KEY=test-key-unit-tests\n');
+    // flutter_dotenv exposes `load` which accepts `fileInput` for tests.
+    dotenv.load(fileName: 'GROQ_API_KEY=test-key-unit-tests\n');
   });
 
   group('GroqApiService — normalización de respuestas', () {
