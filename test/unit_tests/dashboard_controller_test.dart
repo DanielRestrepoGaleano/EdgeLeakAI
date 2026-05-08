@@ -77,10 +77,10 @@ class _FakeDatabaseService extends DatabaseService {
       [];
 
   @override
-  Future<void> eliminarAlerta(int id) async {}
+  Future<int> eliminarAlerta(int id) async => 0;
 
   @override
-  Future<void> eliminarAlertas(List<int> ids) async {}
+  Future<int> eliminarAlertas(List<int> ids) async => 0;
 }
 
 // Fake: EmailService
@@ -110,13 +110,9 @@ class _FakeRuidoFilterService extends RuidoFilterService {
 // Fake: BaselineService con comportamiento controlado
 class _FakeBaselineService extends BaselineService {
   bool desviaResponse;
-  double? flujoBase;
-  double? ruidoBase;
 
   _FakeBaselineService({
     this.desviaResponse = false,
-    this.flujoBase,
-    this.ruidoBase,
   }) : super(_FakeDatabaseService());
 
   @override
@@ -129,10 +125,10 @@ class _FakeBaselineService extends BaselineService {
   bool esDesviacionSignificativa(int ruido, double flujo) => desviaResponse;
 
   @override
-  double? get flujoBaselineActual => flujoBase;
+  double? get flujoBaselineActual => null;
 
   @override
-  double? get ruidoBaselineActual => ruidoBase;
+  double? get ruidoBaselineActual => null;
 
   @override
   Future<List<LecturaResumenModel>> obtenerContextoIA({int limit = 3}) async => [];
