@@ -1,0 +1,374 @@
+# ════════════════════════════════════════════════════════════════
+#  PROMPT MAESTRO — GITHUB COPILOT
+#  Proyecto: EdgeLeak AI v3.0 (ESP32 → Flutter → Groq)
+#  Rol: Ingeniero Senior IoT + QA Especialista en Flutter/Dart
+# ════════════════════════════════════════════════════════════════
+
+## ROL Y CONTEXTO
+
+Actúa como Ingeniero Senior de Software Embebido y Especialista en QA para
+sistemas IoT críticos. El proyecto EdgeLeak AI detecta microfugas en
+lavaplatos domésticos combinando un ESP32 (sensores YF-S201 + KY-037)
+con una app Flutter (Dart 3.x) y análisis contextual en la nube (Groq API
+/ Llama 3.3 70B), siguiendo la arquitectura Edge-to-Cloud.
+
+En esta versión (v3.0), la detección acústica de goteo se migra
+completamente al hardware Edge. El ESP32 envía ahora un tercer campo
+"picos" (int) en su payload JSON, representando los micro-picos acústicos
+contados en el intervalo de 5 segundos. Flutter ya no mide ruido absoluto;
+en cambio, acumula y clasifica estos picos para decidir si invocar a Groq.
+
+
+## ─────────────────────────────────────────────────────────────
+## 1.  ARQUITECTURA DE REFERENCIA (leer antes de generar código)
+## ─────────────────────────────────────────────────────────────
+
+### 1.1  Firmware ESP32 (C++ / Arduino)
+Archivo: C:\Users\danie\OneDrive\Escritorio\edgeleak\esp32_firmware.txt
+Versión: v3.0 (Pattern AI)
+
+Nuevo payload JSON enviado por POST /api/sensor cada 5 s:
+  { "ruido": <int 0-4095>, "flujo": <float L/min>, "picos": <int ≥ 0> }
+
+Lógica clave en el ESP32:
+  - promedioSilencio: promedio móvil exponencial (α = 0.001) del ADC
+    cuando el sensor está bajo el umbral → línea base dinámica.
+  - UMBRAL_SENSIBILIDAD: 150 ADC sobre la línea base para contar un pico.
+  - DEBOUNCE_GOTEO: 200 ms mínimo entre picos válidos.
+  - picosDetectados: contador acumulado en 5 s → se envía y reinicia.
+
+### 1.2  Servicios Flutter (lib/)
+Leer directorio: C:\Users\danie\OneDrive\Escritorio\edgeleak\lib\
+
+Servicios clave existentes (NO borrar):
+  - RuidoFilterService: filtro ventana deslizante (12 muestras / 60 s).
+      · ResultadoRuido: { silencio, impactoAislado, patronGoteo }
+      · Umbral de ruido significativo: 1 500 ADC.
+      · Umbral de silencio base: 800 ADC.
+      · Patrón confirmado: ≥ 3 muestras sobre umbral en la ventana.
+  - BaselineService: perfil estadístico adaptativo de 5 días.
+      · Período diurno: 06:00-22:00 / nocturno: 22:00-06:00.
+      · Requiere ≥ 30 lecturas; si insuficientes → conservador (true).
+      · esDesviacionSignificativa(): ΔFlujo > 0.30 L/min ó ΔRuido > 500 ADC.
+  - GroqApiService: invocación event-driven (no polling).
+  - EmailService: alerta SMTP por severidad.
+  - DatabaseService: SQLite v5 (lecturas_raw, lecturas_resumen_5d,
+    historial_mensual, historial, usuarios).
+  - LocalApiService: servidor HTTP local puerto 8080, auth x-api-key.
+
+Máquina de estados (EstadoSensor — jerarquía estricta):
+  1. Fuga     → flujo > 5.0 L/min (invocación directa a Groq, sin esperar strikes)
+  2. Anomalía → flujo ∈ (0.5, 5.0] L/min  ó  patronGoteo ó  lógica nocturna
+  3. Normal   → default
+
+Lógica nocturna (hora 0:00-6:00):
+  flujo == 0.0  +  promedio ruido > 800 ADC  +  ≥ 3 muestras en ventana
+  → ResultadoRuido.patronGoteo → EstadoSensor.Anomalía
+
+Regla de strikes (sin cambio):
+  3 lecturas consecutivas Anomalía + esDesviacionSignificativa() == true
+  → invocar Groq API.
+
+
+## ─────────────────────────────────────────────────────────────
+## 2.  TAREAS DE DESARROLLO (código de producción)
+## ─────────────────────────────────────────────────────────────
+
+### Tarea A — Actualizar el modelo LecturaSensorModel
+  - Añadir campo: final int picos;
+  - Actualizar fromJson(), toJson() y constructor con valor por defecto picos = 0.
+  - Actualizar toMap()/fromMap() para persistencia en SQLite (lecturas_raw).
+
+### Tarea B — Actualizar SensorRequestDto
+  - Añadir validación del campo "picos" (debe existir y ser int ≥ 0).
+  - Lanzar FormatException si el campo está ausente o es negativo.
+
+### Tarea C — Actualizar DashboardController (lógica nocturna con picos)
+  Definir nueva "Lógica Nocturna v2 / Goteo Silencioso":
+
+  REGLA: Si es hora nocturna (0:00-6:00) Y flujo == 0.0
+         Y la suma de picos en una ventana de 60 s supera UMBRAL_PICOS_NOCTURNOS (= 12)
+         → clasificar como EstadoSensor.Anomalía
+         → acumular strike nocturno
+         → al alcanzar 3 strikes nocturnos, enviar contexto histórico a Groq.
+
+  Esta lógica complementa (NO reemplaza) la existente basada en ruido ADC.
+  El contexto enviado a Groq debe incluir:
+    · Lectura actual (flujo, ruido, picos).
+    · Suma de picos en la ventana de 60 s.
+    · Resúmenes de 5 días de BaselineService (hasta 3 bloques).
+    · Baseline activo del período nocturno.
+
+### Tarea D — Actualizar LocalApiService
+  - POST /api/sensor: deserializar el campo "picos" del body JSON.
+  - Pasar el valor de picos a procesarLecturaSensor().
+
+### Tarea E — Actualizar DatabaseService (si necesario)
+  - Añadir columna "picos" (INTEGER DEFAULT 0) a la tabla lecturas_raw.
+  - Elevar la versión de la DB de v5 a v6.
+  - Implementar onUpgrade correctamente (ALTER TABLE).
+
+
+## ─────────────────────────────────────────────────────────────
+## 3.  BATERÍA DE TESTS UNITARIOS (objetivo: ≥ 40 tests)
+## ─────────────────────────────────────────────────────────────
+## Directorio: C:\Users\danie\OneDrive\Escritorio\edgeleak\test\unit_tests\
+## Framework: flutter_test + mockito (o mocktail)
+##
+## CONVENCIONES OBLIGATORIAS:
+##   · Cada test lleva un comentario de 2-3 líneas describiendo:
+##       // ESCENARIO REAL: <descripción del mundo físico>
+##       // ENTRADA: <valores inyectados>
+##       // RESULTADO ESPERADO: <comportamiento verificado>
+##   · Los grupos se organizan por servicio/módulo.
+##   · Usar Clock injection o similar para controlar DateTime.now().
+##   · NO usar datos hardcodeados sin comentar su origen (ej. ADC 1800 →
+##       "nivel de ruido de flujo activo de lavaplatos estándar").
+## ─────────────────────────────────────────────────────────────
+
+### ARCHIVO 1: test/unit_tests/sensor_model_test.dart
+group('LecturaSensorModel — serialización y defaults'):
+
+  test-01: fromJson con los tres campos presentes → asigna correctamente
+           ruido, flujo y picos.
+  test-02: fromJson sin campo "picos" → lanza FormatException.
+  test-03: fromJson con picos = -1 → lanza FormatException (valor inválido).
+  test-04: toJson incluye los tres campos con tipos correctos.
+  test-05: fromJson con flujo como string numérico → conversión robusta o
+           FormatException según la implementación.
+  test-06: toMap / fromMap ida y vuelta sin pérdida de datos (incluido picos).
+
+
+### ARCHIVO 2: test/unit_tests/ruido_filter_service_test.dart
+group('RuidoFilterService — ventana deslizante y clasificación'):
+
+  test-07: ventana vacía → retorna ResultadoRuido.silencio.
+  test-08: 1 muestra sobre el umbral (1600 ADC) → impactoAislado.
+           // ESCENARIO REAL: Cubierto metálico cae al lavaplatos —
+           // impacto único de alta amplitud, sin continuidad rítmica.
+  test-09: 2 muestras sobre umbral, resto silencio → impactoAislado.
+           // ESCENARIO REAL: Golpe de puerta resonando en tubería
+           // (doble eco), no corresponde a patrón de goteo.
+  test-10: 3 muestras sobre umbral (1600 ADC) en < 60 s → patronGoteo.
+           // ESCENARIO REAL: Goteo rítmico de boquilla: ~1 gota/5 s
+           // genera 3 picos en la ventana de 60 s.
+  test-11: 6 muestras sobre umbral → patronGoteo (confirmación robusta).
+  test-12: muestra con antigüedad > 60 s es descartada de la ventana.
+           // ESCENARIO REAL: El sistema lleva inactivo > 1 min;
+           // el pico anterior ya no es relevante para el patrón actual.
+  test-13: ventana llena (12 muestras), todas bajo umbral → silencio.
+  test-14: 3 muestras válidas + 1 muestra expirada → el conteo excluye
+           la expirada; si quedan < 3 → impactoAislado.
+
+group('RuidoFilterService — lógica nocturna (0:00-6:00)'):
+
+  test-15: hora 03:00, flujo 0.0, promedio ruido 900 ADC, 4 muestras →
+           patronGoteo activado por lógica nocturna.
+           // ESCENARIO REAL: Goteo silencioso de la boquilla a las 3 AM;
+           // el YF-S201 no registra caudal porque el goteo es
+           // insuficiente para activar el contador de pulsos.
+  test-16: hora 03:00, flujo 0.0, promedio ruido 700 ADC (< 800) →
+           silencio (ruido ambiente bajo; no es goteo).
+  test-17: hora 03:00, flujo 0.0, promedio ruido 900, solo 2 muestras →
+           silencio (no hay validez estadística; mín. 3 muestras).
+  test-18: hora 03:00, flujo 0.3 L/min (≠ 0) → la lógica nocturna NO
+           se activa; el flujo prevalece como señal de uso activo.
+  test-19: hora 06:01 (fuera de ventana nocturna), ruido 900 ADC →
+           la lógica nocturna NO se activa (hora fuera del rango).
+  test-20: hora 00:00 exacto → lógica nocturna activa (límite inclusivo).
+  test-21: hora 05:59 → lógica nocturna activa (límite superior exclusivo).
+
+
+### ARCHIVO 3: test/unit_tests/baseline_service_test.dart
+group('BaselineService — construcción y detección de desviación'):
+
+  test-22: con < 30 lecturas → esDesviacionSignificativa() retorna true
+           (modo conservador; no hay baseline válido).
+           // ESCENARIO REAL: Dispositivo recién instalado, primer día
+           // de operación sin datos históricos suficientes.
+  test-23: con 30+ lecturas diurnas y flujo actual dentro del baseline →
+           esDesviacionSignificativa() retorna false.
+           // ENTRADA: baseline flujo 0.35 L/min; actual 0.42 L/min
+           // (delta 0.07 < 0.30 → sin desviación).
+  test-24: desviación de flujo: actual supera baseline en 0.31 L/min →
+           retorna true.
+  test-25: desviación de ruido: actual supera baseline en 501 ADC →
+           retorna true.
+  test-26: desviación conjunta (flujo Y ruido dentro de rango) →
+           retorna false (ninguno supera su umbral independientemente).
+  test-27: período nocturno seleccionado a hora 02:00; período diurno
+           a hora 14:00 → baseline correcto en cada caso.
+  test-28: reconstrucción del baseline tras cambio de usuario →
+           los promedios reflejan exclusivamente las lecturas del nuevo
+           usuario (sin contaminación de datos del usuario anterior).
+
+
+### ARCHIVO 4: test/unit_tests/dashboard_controller_test.dart
+group('DashboardController — máquina de estados (jerarquía Fuga > Anomalía > Normal)'):
+
+  test-29: flujo 6.0 L/min → EstadoSensor.Fuga sin importar ruido ni picos.
+           // ESCENARIO REAL: Manguera de lavaplatos desconectada;
+           // flujo masivo activa detección inmediata de Fuga.
+  test-30: flujo 3.0 L/min (rango anomalía) → EstadoSensor.Anomalía.
+  test-31: flujo 0.4 L/min, ruido 1400 ADC (bajo umbral), picos 0 →
+           EstadoSensor.Normal.
+  test-32: flujo 0.4 L/min, RuidoFilterService retorna patronGoteo →
+           EstadoSensor.Anomalía.
+
+group('DashboardController — regla de 3 strikes y llamada a Groq'):
+
+  test-33: 3 lecturas consecutivas Anomalía + esDesviacionSignificativa
+           true → _invocarGroqPorEvento() es llamado exactamente 1 vez.
+  test-34: 2 lecturas Anomalía + 1 Normal → strikes se resetea a 0;
+           Groq NO es invocado.
+  test-35: estado Fuga en la primera lectura → Groq invocado directamente
+           sin esperar 3 strikes.
+  test-36: IA en proceso (iaProcesando = true) → aunque se alcancen
+           3 strikes, NO se lanza una segunda invocación concurrente.
+
+group('DashboardController — lógica nocturna v2 con campo picos'):
+
+  test-37: hora 02:00, flujo 0.0, picos acumulados en 60 s = 13 (>12) →
+           EstadoSensor.Anomalía + strike nocturno incrementado.
+           // ESCENARIO REAL: Goteo silencioso detectado acústicamente
+           // por el ESP32; el sensor de flujo no reacciona, pero los
+           // 13 micro-picos en 60 s superan el umbral nocturno crítico.
+  test-38: hora 02:00, flujo 0.0, picos = 10 (< 12) → EstadoSensor.Normal
+           (insuficientes picos para confirmar goteo nocturno).
+           // ESCENARIO REAL: Ruido ambiental bajo (refrigerador,
+           // ventilador); 10 picos dentro del rango de ruido ambiente.
+  test-39: 3 strikes nocturnos por picos → payload de Groq incluye
+           "suma_picos_ventana" y "periodo_activo: nocturno".
+
+group('DashboardController — falsos positivos críticos'):
+
+  test-40: 1 pico alto aislado (ruido 2800 ADC, flujo 0.0, picos 1) →
+           sistema permanece en EstadoSensor.Normal.
+           // ESCENARIO REAL: Cubierto de metal cae contra el lavaplatos
+           // a las 3 AM; impacto único, sin patrón rítmico.
+  test-41: ruido alto sostenido (2000 ADC durante 30 s) + flujo 0.8 L/min
+           → EstadoSensor.Anomalía (flujo en rango medio, NO Fuga).
+  test-42: picos 20 + flujo 2.0 L/min (uso activo diurno, 12:00) →
+           Anomalía por flujo medio, pero la lógica nocturna NO aplica.
+  test-43: flujo 5.0 L/min exacto (límite superior de Anomalía) →
+           EstadoSensor.Anomalía (no Fuga; el umbral de Fuga es > 5.0).
+  test-44: flujo 5.01 L/min → EstadoSensor.Fuga (primer valor sobre el
+           umbral estricto).
+
+group('DashboardController — simulación temporal / time-travelling'):
+
+  test-45 "Debe detectar goteo nocturno cuando flujo es 0.0 pero picos
+           son constantes":
+           Inyectar 6 lecturas simuladas con intervalos de 5 s:
+             T+00s: { ruido:820, flujo:0.0, picos:2 }
+             T+05s: { ruido:850, flujo:0.0, picos:3 }
+             T+10s: { ruido:830, flujo:0.0, picos:2 }
+             T+15s: { ruido:810, flujo:0.0, picos:3 }
+             T+20s: { ruido:840, flujo:0.0, picos:3 }
+             T+25s: { ruido:860, flujo:0.0, picos:2 }
+           Total picos en 25 s: 15. Suma > UMBRAL_PICOS_NOCTURNOS (12).
+           Con Clock mockeado a las 03:15 AM.
+           → Verificar que antes de T+20s el estado podría ser Normal,
+             pero al alcanzarse el umbral acumulado → Anomalía.
+           → Verificar que al 3er strike nocturno se invoca Groq.
+
+  test-46: Simular una noche completa sin goteo (picos ≤ 2 por lectura,
+           flujo 0.0, hora 00:00-06:00) → el sistema permanece en
+           Normal durante todo el período; Groq NO es invocado.
+           // ESCENARIO REAL: Noche tranquila, sólo ruido ambiental
+           // de fondo (refrigerador, ventilador a ~800-900 ADC).
+
+  test-47: Simular goteo que comienza a las 05:50 y termina a las 06:10.
+           Verificar que la lógica nocturna activa estado Anomalía a las
+           05:52 (hora ∈ [0,6)), pero que a las 06:02 (hora ≥ 6) la
+           lógica nocturna ya no aplica aunque los picos persistan.
+
+
+### ARCHIVO 5: test/unit_tests/groq_payload_test.dart
+group('GroqApiService — normalización de respuestas y construcción de payload'):
+
+  test-48: veredicto "Fuga Detectada" (mayúsculas y tildes) →
+           normalizado a EstadoSensor.fuga.
+  test-49: veredicto con variantes tipográficas ("fuga detectada",
+           "FUGA DETECTADA") → normalizado consistentemente.
+  test-50: severidad "crítica" → normalizada a "Crítica".
+  test-51: payload contextual incluye campos: lectura_actual, picos,
+           suma_picos_ventana, baseline_activo, resumen_5d, periodo_activo.
+  test-52: fallo de red al llamar a Groq → el sistema usa clasificación
+           edge como fallback y guarda el historial con mensaje
+           "Clasificación edge (sin conexión IA)".
+
+
+### ARCHIVO 6: test/unit_tests/database_service_test.dart
+group('DatabaseService v6 — esquema y migración'):
+
+  test-53: base de datos nueva (v6) crea tabla lecturas_raw con columna
+           "picos" INTEGER DEFAULT 0.
+  test-54: migración de v5 a v6 ejecuta ALTER TABLE lecturas_raw
+           ADD COLUMN picos INTEGER DEFAULT 0 sin pérdida de datos.
+  test-55: insertarLecturaRaw con picos=5 → recuperada con picos=5 en
+           obtenerLecturasRaw().
+  test-56: lecturas_raw insertadas sin el campo picos (migración antigua)
+           → campo resuelto como 0 por el DEFAULT.
+
+
+## ─────────────────────────────────────────────────────────────
+## 4.  DOCUMENTACIÓN (changelog_v3.md)
+## ─────────────────────────────────────────────────────────────
+## Crear en: C:\Users\danie\OneDrive\Escritorio\edgeleak\changelog_v3.md
+## ─────────────────────────────────────────────────────────────
+
+El archivo debe contener las siguientes secciones:
+
+  1. Resumen ejecutivo: migración de la Detección Rítmica al Edge (ESP32).
+     · Por qué se movió al hardware (latencia, consumo de tokens Groq,
+       operación offline).
+     · Diferencia entre la v2.0 (conteo de ruido ADC en Flutter) y la
+       v3.0 (conteo de micro-picos en el ESP32 con debounce de 200 ms).
+
+  2. Nueva estructura del payload JSON:
+     · Tabla comparativa v2 vs v3.
+     · Descripción del campo "picos" y cómo se calcula en el firmware.
+
+  3. Estrategia de mitigación de falsos positivos:
+     · Cómo el debounce de 200 ms en el ESP32 elimina el conteo múltiple
+       de un mismo evento acústico.
+     · Cómo el UMBRAL_PICOS_NOCTURNOS (12) fue calibrado para distinguir
+       ruido ambiental de goteo real.
+     · Descripción de los tests de falsos positivos implementados
+       (test-40, 41, 46) y qué escenario del mundo real valida cada uno.
+
+  4. Optimización de tokens Groq:
+     · Flutter acumula picos en una ventana de 60 s antes de decidir.
+     · Solo se invoca Groq cuando: estado Anomalía/Fuga + desviación del
+       baseline significativa + strikes acumulados.
+     · Resultado: reducción estimada de llamadas a Groq respecto a v2.0.
+
+  5. Cambios de esquema SQLite:
+     · Versión de DB elevada de v5 a v6.
+     · Descripción del campo picos en lecturas_raw.
+     · Script de migración onUpgrade.
+
+  6. Tests implementados: tabla con ID, nombre del test y escenario real.
+
+
+## ─────────────────────────────────────────────────────────────
+## 5.  RESTRICCIONES Y CONVENCIONES
+## ─────────────────────────────────────────────────────────────
+
+  · NO eliminar RuidoFilterService ni BaselineService; los picos
+    complementan la lógica ADC existente, no la reemplazan.
+  · NO añadir imports no utilizados.
+  · Los tests deben compilar con "flutter test" sin modificaciones manuales.
+  · Usar inyección de dependencias (constructor injection) para que los
+    servicios sean reemplazables por mocks en los tests.
+  · Todos los DateTime.now() deben ser inyectables o provenir de un
+    Clock/TimeProvider para habilitar el time-travelling en tests.
+  · El campo "picos" es siempre int ≥ 0; nunca null.
+  · El UMBRAL_PICOS_NOCTURNOS debe ser una constante named con su
+    justificación en un comentario (calibración empírica).
+  · El changelog_v3.md debe estar en Markdown válido con tabla de tests.
+
+# ════════════════════════════════════════════════════════════════
+#  FIN DEL PROMPT — EdgeLeak AI v3.0
+# ════════════════════════════════════════════════════════════════
