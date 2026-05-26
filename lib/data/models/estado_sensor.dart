@@ -6,7 +6,7 @@
 ///               (patrón de goteo rítmico, lógica nocturna, o flujo intermedio).
 ///               El sistema envía una alerta preventiva.
 /// - [fuga]     : El sensor de flujo reporta un caudal superior al umbral crítico
-///               (> 5.0 L/min), indicando una fuga activa confirmada.
+///               (>= 8.0 L/min), indicando una fuga activa confirmada.
 enum EstadoSensor {
   normal,
   anomalia,

@@ -238,8 +238,8 @@ class AdminDashboardScreen extends StatelessWidget {
   }
 
   Color _colorPorCaudal(double caudal) {
-    if (caudal <= 0.5) return AppTheme.normalColor;
-    if (caudal <= 5.0) return AppTheme.warningColor;
+    if (caudal < 7.0) return AppTheme.normalColor;
+    if (caudal < 8.0) return AppTheme.warningColor;
     return AppTheme.criticalColor;
   }
 
@@ -380,21 +380,21 @@ class _ContextCard extends StatelessWidget {
           _ThresholdRow(
             color: AppTheme.normalColor,
             label: 'Normal',
-            range: '0.1 – 0.5 L/min',
+            range: '0.0 – 6.9 L/min',
             description: 'Uso doméstico regular del lavaplatos.',
           ),
           const SizedBox(height: 6),
           _ThresholdRow(
             color: AppTheme.warningColor,
             label: 'Anomalía',
-            range: '0.5 – 5.0 L/min',
+            range: '7.0 – 7.9 L/min',
             description: 'Flujo elevado, posible mal uso o pre-fuga.',
           ),
           const SizedBox(height: 6),
           _ThresholdRow(
             color: AppTheme.criticalColor,
             label: 'Fuga',
-            range: '> 5.0 L/min',
+            range: '≥ 8.0 L/min',
             description: 'Fuga activa. Intervención inmediata requerida.',
           ),
           const SizedBox(height: 14),
@@ -425,7 +425,8 @@ class _ContextCard extends StatelessWidget {
           const SizedBox(height: 6),
           const Text(
             '• Ruido > 1500 + Flujo > 0.5 L/min → Uso Normal\n'
-            '• Ruido > 1500 + Flujo < 0.1 L/min → Posible Fuga\n'
+            '• Ruido > 1500 + Flujo entre 7.0 y 7.9 L/min → Anomalía\n'
+            '• Ruido > 1500 + Flujo >= 8.0 L/min → Posible Fuga\n'
             '• 3 lecturas consecutivas de "Posible Fuga" (~15 s) → Groq AI evalúa',
             style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.7),
           ),

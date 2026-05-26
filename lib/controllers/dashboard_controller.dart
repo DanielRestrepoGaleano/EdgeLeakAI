@@ -64,8 +64,8 @@ class DashboardController extends ChangeNotifier {
   int strikesNocturnos = 0;
 
   // Umbrales de Sensor Fusion
-  static const double _umbralFlujoAnomalia = 0.5;
-  static const double _umbralFlujoFuga = 5.0;
+  static const double _umbralFlujoAnomalia = 7.0;
+  static const double _umbralFlujoFuga = 8.0;
 
   // ── Ventana de picos para lógica nocturna v2 ────────────────────────────────
 
@@ -249,13 +249,13 @@ class DashboardController extends ChangeNotifier {
   EstadoSensor _clasificarEstado(
       int ruido, double flujo, bool anomaliaNoctV2) {
     // Nivel 3: Fuga activa — caudal crítico, sin importar el ruido
-    if (flujo > _umbralFlujoFuga) return EstadoSensor.fuga;
+    if (flujo >= _umbralFlujoFuga) return EstadoSensor.fuga;
 
     // Análisis de patrón de ruido
     final resultadoRuido = _ruidoFilter.clasificar(ruido, flujo);
 
     // Nivel 2: Anomalía — flujo intermedio, patrón de goteo ADC, o lógica nocturna
-    if (flujo > _umbralFlujoAnomalia ||
+    if (flujo >= _umbralFlujoAnomalia ||
         resultadoRuido == ResultadoRuido.patronGoteo ||
         anomaliaNoctV2) {
       return EstadoSensor.anomalia;
