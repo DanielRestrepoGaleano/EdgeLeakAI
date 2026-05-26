@@ -364,17 +364,17 @@ class _UmbralLegenda extends StatelessWidget {
           _LegendaItem(
             color: AppTheme.normalColor,
             label: 'Normal',
-            range: '≤ 0.5 L/min',
+            range: '0.0 – 6.9 L/min',
           ),
           _LegendaItem(
             color: AppTheme.warningColor,
             label: 'Anomalía',
-            range: '0.5–5 L/min',
+            range: '7.0 – 7.9 L/min',
           ),
           _LegendaItem(
             color: AppTheme.criticalColor,
             label: 'Fuga',
-            range: '> 5 L/min',
+            range: '≥ 8.0 L/min',
           ),
         ],
       ),

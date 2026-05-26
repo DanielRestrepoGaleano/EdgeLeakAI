@@ -71,9 +71,9 @@ class GroqApiService {
               "  - Clasificación edge: ${estadoLocal.etiqueta}\n\n"
               "CONTEXTO HISTÓRICO (últimos días):\n$contextoTexto\n\n"
               "PARÁMETROS DE REFERENCIA:\n"
-              "  - Flujo Normal: 0.0 – 0.5 L/min\n"
-              "  - Anomalía de flujo: 0.5 – 5.0 L/min\n"
-              "  - Fuga activa: > 5.0 L/min\n"
+              "  - Flujo Normal: 0.0 – 6.9 L/min\n"
+              "  - Anomalía de flujo: 7.0 – 7.9 L/min\n"
+              "  - Fuga activa: >= 8.0 L/min\n"
               "  - Umbral de ruido significativo: 1500 ADC\n\n"
               "Emite el veredicto final considerando el contexto histórico del usuario. Genera el JSON.",
         },
